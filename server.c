@@ -1,3 +1,4 @@
+// This is the server code for the final project of the course "Embedded Operating Systems" at the University of Colorado Boulder.
 #include <stdio.h>
 #include <pthread.h>
 #include <semaphore.h>
