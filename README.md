@@ -1,6 +1,6 @@
 # eos_final
 This is the repo for eos final project.
-
+```
                        +-------------------+
                        |   Start Server    |
                        +---------+---------+
@@ -51,3 +51,4 @@ This is the repo for eos final project.
                       +----------+-----------+
                       | Wait for New Client  |
                       +----------------------+
+```
