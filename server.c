@@ -22,12 +22,20 @@ pthread_mutex_t lock;
 // Function to simulate the pick and place operation
 void pick_and_place(int current_value) {
     printf("Picking and placing an object based on current_value = %d\n", current_value);
+
     sleep(1); // Simulating the pick and place task
 }
+
+void pick_ready_1() {
+    printf("Robot Arm one is ready to pick an object\n");
+}
+
+
 
 // Function for the first robot arm
 void* robot_arm_1(void* arg) {
     while (1) {
+        pick_ready_1();
         sem_wait(&sem); // Acquire semaphore
         if (number_of_objects < objects_to_pick) {
             int current_value = number_of_objects;
@@ -45,6 +53,7 @@ void* robot_arm_1(void* arg) {
 // Function for the second robot arm
 void* robot_arm_2(void* arg) {
     while (1) {
+        pick_ready_2();
         sem_wait(&sem); // Acquire semaphore
         if (number_of_objects < objects_to_pick) {
             int current_value = number_of_objects;
