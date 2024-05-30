@@ -450,3 +450,31 @@ int RobotCommand(Robot* rb, Command cmd){
     }
     return ret;
 }
+
+void initRobot(Robot* rb, int* gpio_assign){
+    memcpy(rb->gpio_out, gpio_assign, 5*sizeof(int));
+    rb->chip = gpiod_chip_open("/dev/gpiochip4");
+    if(!rb->chip){
+        perror("gpiod_chip_open");
+        goto cleanup;
+    }
+    int err = gpiod_chip_get_lines(rb->chip, gpio_assign, 5, &rb->lines);
+    if(err){
+        perror("gpiod_chip_get_lines");
+        goto cleanup;
+    }
+
+    memset(&rb->config, 0, sizeof(crb->onfig));
+    rb->config.consumer = "robot_command";
+    rb->config.request_type = GPIOD_LINE_REQUEST_DIRECTION_OUTPUT;
+    rb->config.flags = 0;
+
+    int values[5] = {0, 0, 0, 0, 0};
+    // get the bulk lines setting default value to 0
+    err = gpiod_line_request_bulk(&rb->lines, &rb->config, values);
+    if(err)
+    {
+        perror("gpiod_line_request_bulk");
+        goto cleanup;
+    }
+}
