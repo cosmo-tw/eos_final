@@ -36,21 +36,19 @@ typedef enum Command{
   reset     = 14,
   reserved  = 15
 }Command;
+
+typedef struct Robot{
+     struct gpiod_chip *chip;
+     struct gpiod_line_request_config config;
+     struct gpiod_line_bulk lines;
+     unsigned int gpio_out[5];
+}Robot;
 int RobotCommand(struct gpiod_line_bulk* plines, Command cmd);
+void initRobot(Robot* rb, int* gpio_assign);
 
-const unsigned int gpio_out[5] = {23, 4, 17, 27, 22};
-
-void initGpio(void);
-
-// typedef struct Robot{
-//     struct gpiod_chip *chip;
-//     struct gpiod_line_request_config config;
-//     struct gpiod_line_bulk lines;
-//     unsigned int gpio_out[5];
-// }Robot;
 
 int main(int argc, char* argv[]){
-    if(argc > 1){
+/*    if(argc > 1){
         chip = gpiod_chip_open("/dev/gpiochip4");
         if(!chip){
             perror("gpiod_chip_open");
@@ -75,7 +73,10 @@ int main(int argc, char* argv[]){
             perror("gpiod_line_request_bulk");
             goto cleanup;
         }
-
+*/
+    Robot rb1;
+    unsigned int rb1_gpio_assign[5] = {23, 4, 17, 27, 22};
+    initRobot(&rb1, rb1_gpio_assign);
         //
         while(1){
             int cmd;
@@ -101,124 +102,148 @@ reserved  = 15\n >> ");
             if(cmd == 0)
                 break;
             else{
-                int ret = RobotCommand(&lines, (Command)cmd);
+                int ret = RobotCommand(&rb1, (Command)cmd);
             }
         }
         //
         cleanup:
             gpiod_line_release_bulk(&lines);
             gpiod_chip_close(chip);
-    }
+    
     return 0;
 }
 //
-void initGpio(void){
+void initRobot(Robot* rb, int* gpio_assign){
+    memcpy(rb->gpio_out, gpio_assign, 5*sizeof(int));
+    rb->chip = gpiod_chip_open("/dev/gpiochip4");
+    if(!rb->chip){
+        perror("gpiod_chip_open");
+        goto cleanup;
+    }
+    int err = gpiod_chip_get_lines(rb->chip, gpio_assign, 5, &rb->lines);
+    if(err){
+        perror("gpiod_chip_get_lines");
+        goto cleanup;
+    }
 
+    memset(&rb->config, 0, sizeof(crb->onfig));
+    rb->config.consumer = "robot_command";
+    rb->config.request_type = GPIOD_LINE_REQUEST_DIRECTION_OUTPUT;
+    rb->config.flags = 0;
+
+    int values[5] = {0, 0, 0, 0, 0};
+    // get the bulk lines setting default value to 0
+    err = gpiod_line_request_bulk(&rb->lines, &rb->config, values);
+    if(err)
+    {
+        perror("gpiod_line_request_bulk");
+        goto cleanup;
+    }
 }
 //
-int RobotCommand(struct gpiod_line_bulk* plines, Command cmd){
+int RobotCommand(Robot* rb, Command cmd){
     int ret = 0;
     int err = 0;
     // Command cmd_enum = (Command)cmd;
     switch(cmd){
         case ESTOP:{
             int values[5] = {0, 1, 0, 0, 1};
-            err = gpiod_line_set_value_bulk(plines, values);
+            err = gpiod_line_set_value_bulk(&rb->lines, values);
             values[0] = 1;
-            err = gpiod_line_set_value_bulk(plines, values);
+            err = gpiod_line_set_value_bulk(&rb->lines, values);
             break;
         }
         case hold:{
             int values[5] = {0, 1, 0, 1, 0};
-            err = gpiod_line_set_value_bulk(plines, values);
+            err = gpiod_line_set_value_bulk(&rb->lines, values);
             values[0] = 1;
-            err = gpiod_line_set_value_bulk(plines, values);            
+            err = gpiod_line_set_value_bulk(&rb->lines, values);            
             break;
         }
         case resume:{
             int values[5] = {0, 1, 0, 1, 1};
-            err = gpiod_line_set_value_bulk(plines, values);
+            err = gpiod_line_set_value_bulk(&rb->lines, values);
             values[0] = 1;
-            err = gpiod_line_set_value_bulk(plines, values);           
+            err = gpiod_line_set_value_bulk(&rb->lines, values);           
             break;
         }
         case svon:{
             int values[5] = {0, 1, 1, 0, 0};
-            err = gpiod_line_set_value_bulk(plines, values);
+            err = gpiod_line_set_value_bulk(&rb->lines, values);
             values[0] = 1;
-            err = gpiod_line_set_value_bulk(plines, values);
+            err = gpiod_line_set_value_bulk(&rb->lines, values);
             printf("Servo ON\n");
             break;
         }
         case svoff:{
             int values[5] = {0, 1, 1, 0, 1};
-            err = gpiod_line_set_value_bulk(plines, values);
+            err = gpiod_line_set_value_bulk(&rb->lines, values);
             values[0] = 1;
-            err = gpiod_line_set_value_bulk(plines, values);
+            err = gpiod_line_set_value_bulk(&rb->lines, values);
             printf("Servo OFF\n");            
             break;
         }
         case stack1:{
             int values[5] = {0, 0, 0, 0, 1};
-            err = gpiod_line_set_value_bulk(plines, values);
+            err = gpiod_line_set_value_bulk(&rb->lines, values);
             values[0] = 1;
-            err = gpiod_line_set_value_bulk(plines, values);           
+            err = gpiod_line_set_value_bulk(&rb->lines, values);           
             break;
         }
         case  stack2:{
             int values[5] = {0, 0, 0, 1, 0};
-            err = gpiod_line_set_value_bulk(plines, values);
+            err = gpiod_line_set_value_bulk(&rb->lines, values);
             values[0] = 1;
-            err = gpiod_line_set_value_bulk(plines, values);            
+            err = gpiod_line_set_value_bulk(&rb->lines, values);            
             break;
         }
         case  stack3:{
             int values[5] = {0, 0, 0, 1, 1};
-            err = gpiod_line_set_value_bulk(plines, values);
+            err = gpiod_line_set_value_bulk(&rb->lines, values);
             values[0] = 1;
-            err = gpiod_line_set_value_bulk(plines, values);            
+            err = gpiod_line_set_value_bulk(&rb->lines, values);            
             break;
         }
         case  stack4:{
             int values[5] = {0, 0, 1, 0, 0};
-            err = gpiod_line_set_value_bulk(plines, values);
+            err = gpiod_line_set_value_bulk(&rb->lines, values);
             values[0] = 1;
-            err = gpiod_line_set_value_bulk(plines, values);            
+            err = gpiod_line_set_value_bulk(&rb->lines, values);            
             break;
         }
         case  pos0:{
             int values[5] = {0, 0, 1, 0, 1};
-            err = gpiod_line_set_value_bulk(plines, values);
+            err = gpiod_line_set_value_bulk(&rb->lines, values);
             values[0] = 1;
-            err = gpiod_line_set_value_bulk(plines, values);            
+            err = gpiod_line_set_value_bulk(&rb->lines, values);            
             break;
         }
         case  pos1:{
             int values[5] = {0, 0, 1, 1, 0};
-            err = gpiod_line_set_value_bulk(plines, values);
+            err = gpiod_line_set_value_bulk(&rb->lines, values);
             values[0] = 1;
-            err = gpiod_line_set_value_bulk(plines, values);            
+            err = gpiod_line_set_value_bulk(&rb->lines, values);            
             break;
         }
         case  pos2:{
             int values[5] = {0, 0, 1, 1, 1};
-            err = gpiod_line_set_value_bulk(plines, values);
+            err = gpiod_line_set_value_bulk(&rb->lines, values);
             values[0] = 1;
-            err = gpiod_line_set_value_bulk(plines, values);            
+            err = gpiod_line_set_value_bulk(&rb->lines, values);            
             break;
         }
         case  pos3:{
             int values[5] = {0, 1, 0, 0, 0};
-            err = gpiod_line_set_value_bulk(plines, values);
+            err = gpiod_line_set_value_bulk(&rb->lines, values);
             values[0] = 1;
-            err = gpiod_line_set_value_bulk(plines, values);            
+            err = gpiod_line_set_value_bulk(&rb->lines, values);            
             break;
         }
         case  reset:{
             int values[5] = {0, 1, 1, 1, 0};
-            err = gpiod_line_set_value_bulk(plines, values);
+            err = gpiod_line_set_value_bulk(&rb->lines, values);
             values[0] = 1;
-            err = gpiod_line_set_value_bulk(plines, values);            
+            err = gpiod_line_set_value_bulk(&rb->lines, values);            
             break;
         }
         case  NOP:{

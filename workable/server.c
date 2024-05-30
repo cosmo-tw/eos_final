@@ -15,6 +15,8 @@
 #include <sys/stat.h> 
 #include <pthread.h>
 #include <sys/sem.h>
+
+
 #define SEM_MODE 0666 /* rw(owner)-rw(group)-rw(other) permission */ 
 #define SEM_KEY_STACK   1122334455 
 #define SEM_KEY_ARM     1112223334 
@@ -49,9 +51,9 @@ typedef enum Command{
 int sockfd;
 int current_stack=0;
 int sem_stack,sem_arm,sem_counting;
-double robot_stage1[2];//represent robot arm control data
-double robot_stage2[2];//represent robot arm control data
-int robot_active[2]={0,0};//record robot arms are avaliable or not //0:avaliable ,1:active
+double robot_stage1[2]; //represent robot arm control data
+double robot_stage2[2]; //represent robot arm control data
+int robot_active[2]={0,0}; //record robot arms are avaliable or not //0:avaliable ,1:active
 
 /* P () - returns 0 if OK; -1 if there was a problem */ 
 int P (int s)  
@@ -131,8 +133,9 @@ void *pick_place(void *arg) {
 
     //control robot arm (stage 2) needs to check current stack
     P(sem_stack);
-    //control_command(robot_stage2[arm_id],current_stack);
+    control_command(robot_stage2[arm_id],current_stack);
     current_stack+=1;
+
     V(sem_stack);
     
     //release robot arm
