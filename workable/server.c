@@ -14,7 +14,7 @@
 #include <sys/sem.h> 
 #include <sys/stat.h> 
 #include <pthread.h>
-
+#include <sys/sem.h>
 #define SEM_MODE 0666 /* rw(owner)-rw(group)-rw(other) permission */ 
 #define SEM_KEY_STACK   1122334455 
 #define SEM_KEY_ARM     1112223334 
@@ -48,7 +48,7 @@ typedef enum Command{
 //gloabal variable for different threads or functions
 int sockfd;
 int current_stack=0;
-sem_t sem_stack,sem_arm,sem_counting;
+int sem_stack,sem_arm,sem_counting;
 double robot_stage1[2];//represent robot arm control data
 double robot_stage2[2];//represent robot arm control data
 int robot_active[2]={0,0};//record robot arms are avaliable or not //0:avaliable ,1:active
@@ -111,7 +111,7 @@ void sigint_handler(int signum){
 
 //A robot arm control routine
 void *pick_place(void *arg) {
-    printf("pick_place: Started, ID=%d\n",pthread_self());
+    printf("pick_place: Started, ID=%d\n",(int)pthread_self());
     int arm_id;
     //check robot arm is avaliable
     P(sem_counting);
@@ -183,10 +183,11 @@ void *command_reciever(void *fd){
                     if (rc){
                         printf("ERROR; pthread_create() returns %d\n", rc);
                         exit(-1);
+                        break;
                     }
                     printf("do client_command 3\n");
-                    break;
                 }
+                break;
                 //do client_command 1
                 //create pick_place thread to control arm
                 
