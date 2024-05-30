@@ -56,7 +56,7 @@ typedef struct Robot{
      unsigned int gpio_out[5];
      int status;  // 0: idle, 1: active , 2: busy
 }Robot;
-int RobotCommand(struct gpiod_line_bulk* plines, Command cmd);
+int RobotCommand(Robot* rb, Command cmd);
 void initRobot(Robot* rb, int* gpio_assign);
 Robot rb[2];
 
@@ -404,7 +404,7 @@ int RobotCommand(Robot* rb, Command cmd){
             err = gpiod_line_set_value_bulk(&rb->lines, values);            
             break;
         }
-        case  pos0:{
+        case  readypos:{
             int values[5] = {0, 0, 1, 0, 1};
             err = gpiod_line_set_value_bulk(&rb->lines, values);
             values[0] = 1;
