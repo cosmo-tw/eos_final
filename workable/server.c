@@ -155,7 +155,7 @@ void *pick_place(void *arg) {
 
     // wait for robot arm to finish
     while (rb[arm_id].status == 3){
-        read(); 
+        // read(); 
     }
     
     V(sem_stack);
