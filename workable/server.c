@@ -196,6 +196,13 @@ void *command_reciever(void *fd){
                 //ending client_command
                 break;
             }
+            P(sem_stack);
+            if (current_stack >= MAX_stack_size){
+                //stack is full
+                current_stack = 0;
+            }
+            V(sem_stack);
+
             //client_command decoding
             switch (client_command)
             {
@@ -204,7 +211,7 @@ void *command_reciever(void *fd){
                 printf("do client_command 0\n");
                 break;
             case 1:
-            
+
             case 3:
                 for(int i = 0;i < 3;i++){
                     rc = pthread_create(&threads[i], NULL, pick_place, (void *)rb);
