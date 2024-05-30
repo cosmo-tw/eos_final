@@ -464,7 +464,7 @@ void initRobot(Robot* rb, int* gpio_assign){
         goto cleanup;
     }
 
-    memset(&rb->config, 0, sizeof(crb->onfig));
+    memset(&rb->config, 0, sizeof(rb->config));
     rb->config.consumer = "robot_command";
     rb->config.request_type = GPIOD_LINE_REQUEST_DIRECTION_OUTPUT;
     rb->config.flags = 0;
@@ -476,5 +476,8 @@ void initRobot(Robot* rb, int* gpio_assign){
     {
         perror("gpiod_line_request_bulk");
         goto cleanup;
+
     }
+    cleanup:
+        sleep(0);
 }
