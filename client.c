@@ -1,49 +1,84 @@
 #include <stdio.h>
-#include <sys/socket.h>
-#include <arpa/inet.h>
-#include <unistd.h>
+#include <stdlib.h>
 #include <string.h>
+#include <unistd.h>
+#include <sys/types.h>
+#include <sys/socket.h>
+#include <netinet/in.h>
+#include <arpa/inet.h>
+#include <termios.h>
 
-int main() {
-    int sock = 0;
-    struct sockaddr_in serv_addr;
-    char *message;
-    char buffer[1024] = {0};
+#define END_CMD 10
 
-    printf("Enter the number of objects to pick: ");
-    int num_objects;
-    scanf("%d", &num_objects);
+//reference from https://stackoverflow.com/questions/7469139/what-is-the-equivalent-to-getch-getche-in-linux
+char getch(void)
+{
+    char buf = 0;
+    struct termios old = {0};
+    fflush(stdout);
+    if(tcgetattr(0, &old) < 0)
+        perror("tcsetattr()");
+    old.c_lflag &= ~ICANON;
+    old.c_lflag &= ~ECHO;
+    old.c_cc[VMIN] = 1;
+    old.c_cc[VTIME] = 0;
+    if(tcsetattr(0, TCSANOW, &old) < 0)
+        perror("tcsetattr ICANON");
+    if(read(0, &buf, 1) < 0)
+        perror("read()");
+    old.c_lflag |= ICANON;
+    old.c_lflag |= ECHO;
+    if(tcsetattr(0, TCSADRAIN, &old) < 0)
+        perror("tcsetattr ~ICANON");
+    return buf;
+ }
 
-    if (num_objects <= 0) {
-        printf("Invalid input. Please enter a positive number.\n");
-        return -1;
+int main(int argc , char *argv[])
+{
+
+    //socket creation
+    int sockfd = 0;
+    sockfd = socket(AF_INET , SOCK_STREAM , 0);
+
+    if (sockfd == -1){
+        printf("Fail to create a socket.");
     }
 
-    if ((sock = socket(AF_INET, SOCK_STREAM, 0)) < 0) {
-        printf("Socket creation error\n");
-        return -1;
+    //socket connection
+    struct sockaddr_in info;
+    bzero(&info,sizeof(info));
+    info.sin_family = PF_INET;
+
+    info.sin_addr.s_addr = inet_addr(argv[1]);//ip address
+    info.sin_port = htons(atoi(argv[2]));//port
+    int err = connect(sockfd,(struct sockaddr *)&info,sizeof(info));
+    if(err==-1){
+        printf("Connection error");
     }
 
-    serv_addr.sin_family = AF_INET;
-    serv_addr.sin_port = htons(8080);
 
-    // Convert IPv4 and IPv6 addresses from text to binary form
-    if (inet_pton(AF_INET, "127.0.0.1", &serv_addr.sin_addr) <= 0) {
-        printf("Invalid address/ Address not supported\n");
-        return -1;
+    int i;
+    int command[10]={0,1,2,3,4,5,6,7,8,9};
+    char tmp;
+    int sel;
+    char message[256];
+    while (1)
+    {
+        printf("Send a command\n");
+        scanf("%d",&sel);
+        system("clear");
+        if (sel==10){
+            break;
+        }
+        while ((tmp = getchar()) != '\n') {}
+        memset(message,'\0',sizeof(message));
+        sprintf(message,"%d",sel);
+        send(sockfd,message,sizeof(message),0);
+        if(sel==END_CMD){
+            break;
+        }
     }
-
-    if (connect(sock, (struct sockaddr *)&serv_addr, sizeof(serv_addr)) < 0) {
-        printf("Connection failed\n");
-        return -1;
-    }
-
-    // Convert the number of objects to a string and send it to the server
-    asprintf(&message, "%d", num_objects);
-    send(sock, message, strlen(message), 0);
-    printf("Number of objects to pick sent: %s\n", message);
-
-    close(sock);
-    free(message);
+    
+    close(sockfd);
     return 0;
 }
