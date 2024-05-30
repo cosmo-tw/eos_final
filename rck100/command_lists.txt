@@ -1,0 +1,21 @@
+typedef enum Command{
+  NOP       = 0,
+  //
+  stack1    = 1,
+  stack2    = 2,
+  stack3    = 3,
+  stack4    = 4,
+  //
+  pos0      = 5,
+  pos1      = 6,
+  pos2      = 7,
+  pos3      = 8,
+  //
+  ESTOP     = 9,
+  hold      = 10,
+  resume    = 11,
+  svon      = 12,
+  svoff     = 13,
+  reset     = 14,
+  reserved  = 15
+} Command;

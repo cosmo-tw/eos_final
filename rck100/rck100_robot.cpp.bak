@@ -1,0 +1,106 @@
+#include"rck100_robot.h"
+
+
+
+void Robot::Init(void){
+	A1_16_Ini (115200);
+	servo_on = false;
+	trajectory_ready = false;
+}
+//
+void Robot::ReadRobotPosition(int* pos, bool disp){
+  for(unsigned char i = 0; i<6; ++i){
+    pos[i] = ReadPosition(i+1);
+  }
+  if(disp){
+    for(unsigned char i = 0; i<6; ++i){
+      Serial.print(pos[i]);
+      Serial.print(", ");
+    }
+    Serial.print("\n");
+    delay(500);
+  }
+}
+//
+void Robot::ServoON(void){
+  int pos_now[6];
+  ReadRobotPosition(pos_now, false);
+  SetRobotPosition(100, pos_now);
+  servo_on = true;
+  Serial.print("Servo ON.\n");
+  delay(200);
+}
+//
+void Robot::ServoOFF(void){
+  for(unsigned char i = 1; i<=6; ++i){
+    A1_16_TorqueOff(i);
+  }
+  servo_on = false;
+  Serial.print("Servo off.\n");
+  delay(200);
+}
+//
+bool Robot::isServoON(void){
+	return servo_on;
+}
+//
+void Robot::SetRobotPosition(unsigned char play_time, unsigned int* pos){
+  for(unsigned char i = 0; i<6; ++i){
+    SetPositionI_JOG(i+1, play_time, pos[i]);
+  }
+  servo_on = true;
+}
+//
+void Robot::SetPoint(void){
+	static int index = 0;
+	unsigned int pos_now[6];
+	
+	trajectory_ready = false;
+	
+	ReadRobotPosition(pos_now, false);
+	
+	set_point[index][0] = pos_now[0];
+	set_point[index][1] = pos_now[1];
+	set_point[index][2] = pos_now[2];
+	set_point[index][3] = pos_now[3];
+	set_point[index][4] = pos_now[4];
+	set_point[index][5] = pos_now[5];
+	
+	Serial.print("Set point[");
+	Serial.print(index);
+	Serial.print("] = ");
+	for(unsigned char i = 0; i<6; ++i){
+		Serial.print(pos_now[i]);
+		Serial.print(", ");
+	}
+	Serial.print("\n");
+	
+	++index;
+	if(index >= 10){
+		trajectory_ready = true;
+		index = 0;
+	}
+	delay(200);
+}
+//
+void Robot::StartTrajectory(unsigned int step_time){
+	if(trajectory_ready){
+		SetRobotPosition(1000, &set_point[0][0]);
+		delay(1000);
+		for(unsigned int i = 0; i<10; ++i){
+			Serial.print("Move to the point[");
+			Serial.print(i);
+			Serial.print("]......\n");
+			char str[100];
+			sprintf(str, "Moving to the point[%d] ......\n", i);
+			Serial.println(str);
+			SetRobotPosition(100, &set_point[i][0]);
+			delay(step_time);
+		}
+	}
+	else{
+		Serial.print("Failed: the points of trajectory haven't been set yet.\n");
+	}
+	Serial.println("Trajectory completed.");
+	delay(200);
+}

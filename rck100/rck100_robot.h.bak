@@ -1,0 +1,27 @@
+#ifndef RCK100_ROBOT
+#define RCK100_ROBOT
+
+#include<A1_16.h>
+/*
+void Robot_Init(void);
+void ReadRobotPosition(int* pos, bool disp);
+void ServoON(void);
+void ServoOFF(void);
+void SetRobotPosition(unsigned char play_time, unsigned int* pos);
+*/
+class Robot{
+	private:
+		int robot_position_now[6];
+		bool servo_on;
+		unsigned int set_point[10][6];
+	public:
+		void Init(void);
+		void ReadRobotPosition(int* pos, bool disp);
+		void ServoON(void);
+		void ServoOFF(void);
+		bool isServoON(void);
+		void SetRobotPosition(unsigned char play_time, unsigned int* pos);
+		void SetPoint(void);
+		void StartTrajectory(unsigned int step_time);
+};
+#endif
