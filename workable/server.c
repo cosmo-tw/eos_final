@@ -15,6 +15,8 @@
 #include <sys/stat.h> 
 #include <pthread.h>
 #include <sys/sem.h>
+#include <gpiod.h>
+
 
 
 #define SEM_MODE 0666 /* rw(owner)-rw(group)-rw(other) permission */ 
@@ -25,6 +27,7 @@
 #define MAX_stack_size 4
 #define END_CMD 10
 
+// for robot arm control 
 typedef enum Command{
   NOP       = 0,
   //
@@ -33,7 +36,7 @@ typedef enum Command{
   stack3    = 3,
   stack4    = 4,
   //
-  pos0      = 5,
+  readypos  = 5,
   pos1      = 6,
   pos2      = 7,
   pos3      = 8,
@@ -46,10 +49,22 @@ typedef enum Command{
   reset     = 14,
   reserved  = 15
 } Command;
+typedef struct Robot{
+     struct gpiod_chip *chip;
+     struct gpiod_line_request_config config;
+     struct gpiod_line_bulk lines;
+     unsigned int gpio_out[5];
+     int status;  // 0: idle, 1: active , 2: busy
+}Robot;
+int RobotCommand(struct gpiod_line_bulk* plines, Command cmd);
+void initRobot(Robot* rb, int* gpio_assign);
+Robot rb[2];
+
+
 
 //gloabal variable for different threads or functions
 int sockfd;
-int current_stack=0;
+int current_stack = 0; 
 int sem_stack,sem_arm,sem_counting;
 double robot_stage1[2]; //represent robot arm control data
 double robot_stage2[2]; //represent robot arm control data
@@ -113,34 +128,42 @@ void sigint_handler(int signum){
 
 //A robot arm control routine
 void *pick_place(void *arg) {
+    Robot* rb = (Robot*)arg;
     printf("pick_place: Started, ID=%d\n",(int)pthread_self());
-    int arm_id;
+    int arm_id = 0; 
+
     //check robot arm is avaliable
     P(sem_counting);
     P(sem_arm);
-    if (robot_active[0]==0){
-        robot_active[0]==1;
-        arm_id=0;
+    if (rb[0].status == 0){
+        rb[0].status = 1; 
+        arm_id = 0; //robot arm 1
     }
     else{
-        robot_active[1]==1;
-        arm_id=1;
+        rb[1].status = 1;
+        arm_id = 1; //robot arm 2
     }
     V(sem_arm);
+    
+    // ready position
+    RobotCommand(&rb[arm_id], readypos); 
 
-    //control robot arm (stage 1)
-    //control_command(robot_stage1[arm_id]);
-
-    //control robot arm (stage 2) needs to check current stack
+    //control robot arm (with current_stack) needs to check current stack
     P(sem_stack);
-    control_command(robot_stage2[arm_id],current_stack);
-    current_stack+=1;
+    RobotCommand(&rb[arm_id], (Command)current_stack); 
+    current_stack += 1;
 
+    // wait for robot arm to finish
+    while (rb[arm_id].status == 3){
+        read(); 
+    }
+    
     V(sem_stack);
     
-    //release robot arm
+    // release robot arm semaphore
     P(sem_arm);
-    robot_active[arm_id]==0;
+    // robot arm finished
+    rb[arm_id].status = 0;
     V(sem_arm);
     V(sem_counting);
     pthread_exit(NULL);
@@ -180,9 +203,11 @@ void *command_reciever(void *fd){
                 //do client_command 0
                 printf("do client_command 0\n");
                 break;
+            case 1:
+            
             case 3:
                 for(int i = 0;i < 3;i++){
-                    rc = pthread_create(&threads[i], NULL, pick_place, NULL);
+                    rc = pthread_create(&threads[i], NULL, pick_place, (void *)rb);
                     if (rc){
                         printf("ERROR; pthread_create() returns %d\n", rc);
                         exit(-1);
@@ -212,6 +237,11 @@ void *command_reciever(void *fd){
 
 int main(int argc, char *argv[]) {
     signal(SIGINT,sigint_handler);
+    unsigned int rb1_gpio_assign[5] = {23, 4, 17, 27, 22};
+    initRobot(rb, rb1_gpio_assign);
+
+    unsigned int rb2_gpio_assign[5] = {0, 0, 0, 0, 0}; // to-do
+    initRobot(rb+1, rb2_gpio_assign);
 
      //semaphore (two binary and one counting semaphore)
     sem_stack = semget(SEM_KEY_STACK, 1,IPC_CREAT | IPC_EXCL| SEM_MODE); 
@@ -295,4 +325,121 @@ int main(int argc, char *argv[]) {
     }
 
 
+}
+
+int RobotCommand(Robot* rb, Command cmd){
+    int ret = 0;
+    int err = 0;
+    // Command cmd_enum = (Command)cmd;
+    switch(cmd){
+        case ESTOP:{
+            int values[5] = {0, 1, 0, 0, 1};
+            err = gpiod_line_set_value_bulk(&rb->lines, values);
+            values[0] = 1;
+            err = gpiod_line_set_value_bulk(&rb->lines, values);
+            break;
+        }
+        case hold:{
+            int values[5] = {0, 1, 0, 1, 0};
+            err = gpiod_line_set_value_bulk(&rb->lines, values);
+            values[0] = 1;
+            err = gpiod_line_set_value_bulk(&rb->lines, values);            
+            break;
+        }
+        case resume:{
+            int values[5] = {0, 1, 0, 1, 1};
+            err = gpiod_line_set_value_bulk(&rb->lines, values);
+            values[0] = 1;
+            err = gpiod_line_set_value_bulk(&rb->lines, values);           
+            break;
+        }
+        case svon:{
+            int values[5] = {0, 1, 1, 0, 0};
+            err = gpiod_line_set_value_bulk(&rb->lines, values);
+            values[0] = 1;
+            err = gpiod_line_set_value_bulk(&rb->lines, values);
+            printf("Servo ON\n");
+            break;
+        }
+        case svoff:{
+            int values[5] = {0, 1, 1, 0, 1};
+            err = gpiod_line_set_value_bulk(&rb->lines, values);
+            values[0] = 1;
+            err = gpiod_line_set_value_bulk(&rb->lines, values);
+            printf("Servo OFF\n");            
+            break;
+        }
+        case stack1:{
+            int values[5] = {0, 0, 0, 0, 1};
+            err = gpiod_line_set_value_bulk(&rb->lines, values);
+            values[0] = 1;
+            err = gpiod_line_set_value_bulk(&rb->lines, values);           
+            break;
+        }
+        case  stack2:{
+            int values[5] = {0, 0, 0, 1, 0};
+            err = gpiod_line_set_value_bulk(&rb->lines, values);
+            values[0] = 1;
+            err = gpiod_line_set_value_bulk(&rb->lines, values);            
+            break;
+        }
+        case  stack3:{
+            int values[5] = {0, 0, 0, 1, 1};
+            err = gpiod_line_set_value_bulk(&rb->lines, values);
+            values[0] = 1;
+            err = gpiod_line_set_value_bulk(&rb->lines, values);            
+            break;
+        }
+        case  stack4:{
+            int values[5] = {0, 0, 1, 0, 0};
+            err = gpiod_line_set_value_bulk(&rb->lines, values);
+            values[0] = 1;
+            err = gpiod_line_set_value_bulk(&rb->lines, values);            
+            break;
+        }
+        case  pos0:{
+            int values[5] = {0, 0, 1, 0, 1};
+            err = gpiod_line_set_value_bulk(&rb->lines, values);
+            values[0] = 1;
+            err = gpiod_line_set_value_bulk(&rb->lines, values);            
+            break;
+        }
+        case  pos1:{
+            int values[5] = {0, 0, 1, 1, 0};
+            err = gpiod_line_set_value_bulk(&rb->lines, values);
+            values[0] = 1;
+            err = gpiod_line_set_value_bulk(&rb->lines, values);            
+            break;
+        }
+        case  pos2:{
+            int values[5] = {0, 0, 1, 1, 1};
+            err = gpiod_line_set_value_bulk(&rb->lines, values);
+            values[0] = 1;
+            err = gpiod_line_set_value_bulk(&rb->lines, values);            
+            break;
+        }
+        case  pos3:{
+            int values[5] = {0, 1, 0, 0, 0};
+            err = gpiod_line_set_value_bulk(&rb->lines, values);
+            values[0] = 1;
+            err = gpiod_line_set_value_bulk(&rb->lines, values);            
+            break;
+        }
+        case  reset:{
+            int values[5] = {0, 1, 1, 1, 0};
+            err = gpiod_line_set_value_bulk(&rb->lines, values);
+            values[0] = 1;
+            err = gpiod_line_set_value_bulk(&rb->lines, values);            
+            break;
+        }
+        case  NOP:{
+            ret = -1;
+            break;
+        }
+    }
+    if(err){
+        perror("gpiod_line_set_value_bulk");
+        ret = -1;
+    }
+    return ret;
 }
