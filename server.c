@@ -222,6 +222,11 @@ void *command_reciever(void *fd){
                     }
                     printf("do client_command 3\n");
                 }
+                // make sure all threads are finished
+                for(int i = 0;i < 3;i++){
+                    pthread_join(threads[i], NULL);
+                }
+
                 break;
                 //do client_command 1
                 //create pick_place thread to control arm
@@ -325,12 +330,12 @@ int main(int argc, char *argv[]) {
                 printf("ERROR; pthread_create() returns %d\n", rc);
                 exit(-1);
             }
-
+            // 
         }
         forClientSockfd=-1;
 
     }
-
+    
 
 }
 
