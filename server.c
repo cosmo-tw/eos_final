@@ -211,6 +211,37 @@ void *command_reciever(void *fd){
                 printf("do client_command 0\n");
                 break;
             case 1:
+                for(int i = 0;i < 1;i++){
+                    rc = pthread_create(&threads[i], NULL, pick_place, (void *)rb);
+                    if (rc){
+                        printf("ERROR; pthread_create() returns %d\n", rc);
+                        exit(-1);
+                        break;
+                    }
+                    printf("do client_command 1\n");
+                }
+                // make sure all threads are finished
+                for(int i = 0;i < 1;i++){
+                    pthread_join(threads[i], NULL);
+                }
+
+                break;
+            case 2:
+                for(int i = 0;i < 2;i++){
+                    rc = pthread_create(&threads[i], NULL, pick_place, (void *)rb);
+                    if (rc){
+                        printf("ERROR; pthread_create() returns %d\n", rc);
+                        exit(-1);
+                        break;
+                    }
+                    printf("do client_command 2\n");
+                }
+                // make sure all threads are finished
+                for(int i = 0;i < 2;i++){
+                    pthread_join(threads[i], NULL);
+                }
+
+                break;
 
             case 3:
                 for(int i = 0;i < 3;i++){
@@ -226,7 +257,6 @@ void *command_reciever(void *fd){
                 for(int i = 0;i < 3;i++){
                     pthread_join(threads[i], NULL);
                 }
-
                 break;
                 //do client_command 1
                 //create pick_place thread to control arm
