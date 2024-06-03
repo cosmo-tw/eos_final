@@ -23,6 +23,7 @@
 #define SEM_KEY_STACK   1122334455 
 #define SEM_KEY_ARM     1112223334 
 #define SEM_KEY_COUNT    1112223333
+#define SEM_MULTI_CLIENTS 1112223344
 #define MAX_client 5
 #define MAX_stack_size 4
 #define END_CMD 10
@@ -65,7 +66,7 @@ Robot rb[2];
 //gloabal variable for different threads or functions
 int sockfd;
 int current_stack = 0; 
-int sem_stack,sem_arm,sem_counting;
+int sem_stack,sem_arm,sem_counting,sem_multi_clients;
 double robot_stage1[2]; //represent robot arm control data
 double robot_stage2[2]; //represent robot arm control data
 int robot_active[2]={0,0}; //record robot arms are avaliable or not //0:avaliable ,1:active
@@ -120,6 +121,11 @@ void sigint_handler(int signum){
         fprintf (stderr, "unable to remove sem %d\n", SEM_KEY_COUNT); 
         exit(1); 
     } 
+    if (semctl (sem_multi_clients, 1, IPC_RMID, 0) < 0) 
+    { 
+        fprintf (stderr, "unable to remove sem %d\n", SEM_MULTI_CLIENTS); 
+        exit(1); 
+    }
     //close scoketfd
     close(sockfd);
     //program end
@@ -190,8 +196,11 @@ void *command_reciever(void *fd){
     char outputBuffer[256];
     while (1)
     {
+
         if (recv(forClientSockfd,inputBuffer,sizeof(inputBuffer),0) != -1){
+            
             client_command=atoi(inputBuffer);
+            P(sem_multi_clients); // only one client can send command at a time
             if(client_command==END_CMD){
                 //ending client_command
                 break;
@@ -268,8 +277,7 @@ void *command_reciever(void *fd){
             
         }
     }
-    
-
+    V(sem_multi_clients); // release semaphore
     close(forClientSockfd);
     pthread_exit(NULL);
 }
@@ -304,6 +312,12 @@ int main(int argc, char *argv[]) {
         fprintf(stderr, "Sem %d creation failed: %s\n", SEM_KEY_COUNT,  strerror(errno)); 
         exit(-1); 
     } 
+    sem_multi_clients = semget(SEM_MULTI_CLIENTS, 1,IPC_CREAT | IPC_EXCL| SEM_MODE);
+    if (sem_multi_clients < 0) 
+    { 
+        fprintf(stderr, "Sem %d creation failed: %s\n", SEM_MULTI_CLIENTS,  strerror(errno)); 
+        exit(-1); 
+    }
     /* initial semaphore value to 1 (binary semaphore) */ 
     if ( semctl(sem_stack, 0, SETVAL, 1) < 0 ) 
     { 
@@ -316,6 +330,11 @@ int main(int argc, char *argv[]) {
         exit(0); 
     }
     if ( semctl(sem_counting, 0, SETVAL, 2) < 0 ) 
+    { 
+        fprintf(stderr, "Unable to initialize Sem: %s\n", strerror(errno)); 
+        exit(0); 
+    }
+    if ( semctl(sem_multi_clients, 0, SETVAL, 1) < 0 ) 
     { 
         fprintf(stderr, "Unable to initialize Sem: %s\n", strerror(errno)); 
         exit(0); 

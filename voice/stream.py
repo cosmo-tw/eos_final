@@ -1,9 +1,24 @@
 import subprocess
 import collections
+import lgpio
+
+# GPIO setup using lgpio
+values = [0, 1, 0, 0, 1]
+rb1_gpio_assign = [23, 4, 17, 27, 22]
+
+def set_gpio_values(values, pins):
+    h = lgpio.gpiochip_open(0)  # Open the first GPIO chip
+    try:
+        for value, pin in zip(values, pins):
+            lgpio.gpio_claim_output(h, pin)  # Claim the GPIO pin as output
+            lgpio.gpio_write(h, pin, value)  # Set the GPIO pin to the specified value
+    finally:
+        lgpio.gpiochip_close(h)
 
 def run_cpp_program():
+    h = lgpio.gpiochip_open(0)
     # Command to run the C++ program with specified arguments
-    command = ['../whisper.cpp/stream', '-m', '../whisper.cpp/models/ggml-tiny.en.bin', '-t', '4', '--step', '1200', '--length', '1400', '-c', '0']
+    command = ['../whisper.cpp/stream', '-m', '../whisper.cpp/models/ggml-tiny.en.bin', '-t', '4', '--step', '1010', '--length', '1010', '-c', '0']
 
     # Create a deque (double-ended queue) to act as a FIFO queue
     output_fifo = collections.deque()
@@ -18,9 +33,18 @@ def run_cpp_program():
             break
         if output:
             # Process the output to remove commas, periods, and convert to lowercase
-            processed_output = output.strip().replace(',', '').replace('.', '').replace('?', '').lower()
+            processed_output = output.strip().replace(',', '').replace('.', '').replace('!', '').lower()
             print(processed_output)  # Print to console (optional)
             output_fifo.append(processed_output)
+            
+            # Check 
+            if 'stop' in processed_output:
+                print("Stop command detected. Sending interrupt signal.")
+                pin = 23
+                set_gpio_values(values, rb1_gpio_assign)
+                lgpio.gpio_claim_output(h, pin)
+                lgpio.gpio_write(h, pin, 1)
+                break
 
     # Wait for the process to finish and capture any remaining output
     stderr = process.communicate()[1]
@@ -34,3 +58,6 @@ if __name__ == '__main__':
     print("Captured output:")
     for line in fifo:
         print(line)
+
+    # Clean up GPIO settings
+    lgpio.gpiochip_close(h)
