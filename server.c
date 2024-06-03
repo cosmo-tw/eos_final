@@ -233,7 +233,7 @@ void *command_reciever(void *fd){
                 for(int i = 0;i < 1;i++){
                     pthread_join(threads[i], NULL);
                 }
-
+                V(sem_multi_clients); // release semaphore
                 break;
             case 2:
                 for(int i = 0;i < 2;i++){
@@ -249,7 +249,7 @@ void *command_reciever(void *fd){
                 for(int i = 0;i < 2;i++){
                     pthread_join(threads[i], NULL);
                 }
-
+                V(sem_multi_clients); // release semaphore
                 break;
 
             case 3:
@@ -266,6 +266,7 @@ void *command_reciever(void *fd){
                 for(int i = 0;i < 3;i++){
                     pthread_join(threads[i], NULL);
                 }
+                V(sem_multi_clients); // release semaphore
                 break;
                 //do client_command 1
                 //create pick_place thread to control arm
@@ -277,7 +278,6 @@ void *command_reciever(void *fd){
             
         }
     }
-    V(sem_multi_clients); // release semaphore
     close(forClientSockfd);
     pthread_exit(NULL);
 }
