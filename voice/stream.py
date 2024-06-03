@@ -5,9 +5,9 @@ import lgpio
 # GPIO setup using lgpio
 values = [0, 1, 0, 0, 1]
 rb1_gpio_assign = [23, 4, 17, 27, 22]
+h = lgpio.gpiochip_open(0) 
 
 def set_gpio_values(values, pins):
-    h = lgpio.gpiochip_open(0)  # Open the first GPIO chip
     try:
         for value, pin in zip(values, pins):
             lgpio.gpio_claim_output(h, pin)  # Claim the GPIO pin as output
@@ -16,7 +16,6 @@ def set_gpio_values(values, pins):
         lgpio.gpiochip_close(h)
 
 def run_cpp_program():
-    h = lgpio.gpiochip_open(0)
     # Command to run the C++ program with specified arguments
     command = ['../whisper.cpp/stream', '-m', '../whisper.cpp/models/ggml-tiny.en.bin', '-t', '4', '--step', '1010', '--length', '1010', '-c', '0']
 
