@@ -12,6 +12,7 @@ void Robot::Reset(void){
   teach_mode = TEACH_MODE_PTP;
 	trajectory_ready = false;
   estop_alarm = false;
+  teach_index = 0;
  ref_joint_angle_count[0] = 512;
  ref_joint_angle_count[1] = 480;
  ref_joint_angle_count[2] = 428;
@@ -36,14 +37,12 @@ void Robot::Reset(void){
 }
 //
 void Robot::ReadRobotPosition(int* pos, bool disp){
-  Serial.print("Read: ");
-  for(unsigned char i = 0; i<6; ++i){
+
+  for(int i = 0; i<6; ++i)
     pos[i] = ReadPosition(i+1);
-    Serial.print(pos[i]); 
-    Serial.print(", "); 
-  }
-  Serial.print("\n");
   if(disp){
+    Serial.print("Read: ");
+    Serial.print("\n");
     // show joint angle:
     Serial.print("Joint angle: ");
     double angle[6];
@@ -79,6 +78,10 @@ void Robot::ServoON(void){
   this->status = Status::sready;
 }
 //
+void Robot::ResetTeach(void){
+  this->teach_index = 0;
+}
+//
 void Robot::ServoOFF(void){
   for(unsigned char i = 1; i<=6; ++i){
     A1_16_TorqueOff(i);
@@ -100,36 +103,46 @@ void Robot::SetRobotPosition(unsigned char play_time, unsigned int* pos){
   servo_on = true;
 }
 //
-void Robot::SetPoint(int ptp_index){
-	static int index = 0;
+void Robot::SetPoint(int ptp_index, bool export_csv){
 	unsigned int pos_now[6];
 	
 	trajectory_ready = false;
 	
 	ReadRobotPosition(pos_now, false);
 	
-	set_point[ptp_index][index][0] = pos_now[0];
-	set_point[ptp_index][index][1] = pos_now[1];
-	set_point[ptp_index][index][2] = pos_now[2];
-	set_point[ptp_index][index][3] = pos_now[3];
-	set_point[ptp_index][index][4] = pos_now[4];
-	set_point[ptp_index][index][5] = pos_now[5];
+	set_point[ptp_index][teach_index][0] = pos_now[0];
+	set_point[ptp_index][teach_index][1] = pos_now[1];
+	set_point[ptp_index][teach_index][2] = pos_now[2];
+	set_point[ptp_index][teach_index][3] = pos_now[3];
+	set_point[ptp_index][teach_index][4] = pos_now[4];
+	set_point[ptp_index][teach_index][5] = pos_now[5];
 	
-	Serial.print("Set point[");
-	Serial.print(ptp_index);
-	Serial.print("][");
-  Serial.print(index);
-  Serial.print("] = ");
-	for(unsigned char i = 0; i<6; ++i){
-		Serial.print((double)(pos_now[i]-ref_joint_angle_count[i])*330.0/1024.0);
-		Serial.print(", ");
-	}
-	Serial.print("\n");
+  if(!export_csv){
+    Serial.print("Set point[");
+    Serial.print(ptp_index);
+    Serial.print("][");
+    Serial.print(teach_index);
+    Serial.print("] = ");
+    for(unsigned char i = 0; i<6; ++i){
+      Serial.print((double)(pos_now[i]-ref_joint_angle_count[i])*330.0/1024.0);
+      Serial.print(", ");
+    }
+    Serial.print("\n");
+  }
+  else{
+    for(unsigned char i = 0; i<6; ++i){
+      Serial.print((int)pos_now[i]);
+      if(i < 5)
+        Serial.print(",");
+      else
+        Serial.println();
+    }
+  }
 	
-	++index;
-	if(index >= TEACH_POINT_SIZE){
+	++teach_index;
+	if(teach_index >= TEACH_POINT_SIZE){
 		trajectory_ready = true;
-		index = 0;
+		teach_index = 0;
 	}
 	delay(200);
 }
@@ -162,10 +175,11 @@ void Robot::Resume(void){
 void Robot::StartTrajectory(int ptp_index, unsigned int step_time){
   status = Status::busy;
 	char str[100];
-	if(trajectory_ready){
+	if(1){
     SetRobotPosition(1000, &set_point[ptp_index][0][0]);
     delay(1000);
     for(unsigned int i = holding_index[1]; i<TEACH_POINT_SIZE; ++i){
+
       if(status == Status::disabled){
         goto T;
       }
@@ -176,7 +190,7 @@ void Robot::StartTrajectory(int ptp_index, unsigned int step_time){
       }
       sprintf(str, "Moving to the point[%d][%d]......\n", ptp_index, i);
       Serial.println(str);
-      SetRobotPosition(100, &set_point[ptp_index][i][0]);
+      SetRobotPosition(300, &set_point[ptp_index][i][0]);
       delay(step_time);
 		}
 	}
@@ -184,7 +198,7 @@ void Robot::StartTrajectory(int ptp_index, unsigned int step_time){
 		Serial.print("Failed: the points of trajectory haven't been set yet.\n");
 	}
 	Serial.println("Trajectory completed.");
-	delay(200);
+
   holding_index[1] = 0;
   status = Status::INP;
   T:
@@ -314,4 +328,28 @@ void Robot::MatrixMuliply(double a[], double b[], int a_row, int a_col, int b_co
                 c[i * b_col + j] += a[i * a_col + k] * b[k * b_col + j];
         }
     }
+}
+
+//
+void Robot::MoveToReadyPos(void){
+	SetRobotPosition(400, READY_POS);
+}
+//
+void Robot::LoadTeach(void){
+    for(int j = 0; j<TEACH_POINT_SIZE; ++j)
+      for(int k = 0; k<6; ++k)
+        this->set_point[4][j][k] = READY_TO_PICK[j][k];
+
+    for(int j = 0; j<TEACH_POINT_SIZE; ++j)
+      for(int k = 0; k<6; ++k)
+        this->set_point[0][j][k] = READY_TO_STACK1[j][k];
+        
+    for(int j = 0; j<TEACH_POINT_SIZE; ++j)
+      for(int k = 0; k<6; ++k)
+        this->set_point[1][j][k] = READY_TO_STACK2[j][k];
+
+    for(int j = 0; j<TEACH_POINT_SIZE; ++j)
+      for(int k = 0; k<6; ++k)
+        this->set_point[2][j][k] = READY_TO_STACK3[j][k];
+    
 }

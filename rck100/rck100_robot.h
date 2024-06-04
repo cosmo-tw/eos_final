@@ -1,7 +1,9 @@
 #ifndef RCK100_ROBOT
 #define RCK100_ROBOT
+#define ROBOT1
 
 #include"A1_16.h"
+#include"teach_point.h"
 
 // reference angle value(servo position counts)
 #define REF_ANGLE_1       512
@@ -18,7 +20,7 @@
 #define RAD2COUNT(radian)   ((radian)*177.791f)   // radian*(180/PI)*(1024/330)
 #define DEG2COUNT(radian)   ((radian)*3.103f)   // degree*(1024/330)
 
-#define TEACH_POINT_SIZE 20 // 100 Hz * X sec.
+#define TEACH_POINT_SIZE 15 // 100 Hz * X sec.
 #define TEACH_MODE_PTP 0
 #define TEACH_MODE_STREAM 1
 //
@@ -43,6 +45,7 @@ class Robot{
     double DH_alpha[5];
     double DH_d[5];
     double DH_theta[5];
+    unsigned int teach_index;
 	public:
     bool trajectory_ready;
     unsigned char teach_mode;
@@ -51,19 +54,22 @@ class Robot{
     void Resume(void);
     void Reset(void);
     bool isHolded(void);
-		void Init(void);
-		void ReadRobotPosition(int* pos, bool disp);
-		void ServoON(void);
-		void ServoOFF(void);
-		bool isServoON(void);
-		void SetRobotPosition(unsigned char play_time, unsigned int* pos);
-		void SetPoint(int ptp_index);
-		void StartTrajectory(int ptp_index, unsigned int step_time);
+	void Init(void);
+	void ReadRobotPosition(int* pos, bool disp);
+	void ServoON(void);
+	void ServoOFF(void);
+	bool isServoON(void);
+	void SetRobotPosition(unsigned char play_time, unsigned int* pos);
+	void SetPoint(int ptp_index, bool export_csv=false);
+	void StartTrajectory(int ptp_index, unsigned int step_time);
     void FK_calculate(double* joint_angle , double* xyz_pos);
     void Homo_trans(double theta, int n, double T[]);
     void TeachMode(unsigned int point_number);
     void MatrixMuliply(double a[], double b[], int a_row, int a_col, int b_col, double c[]);
     Status getStatus(void);
+    void ResetTeach(void);
+	void MoveToReadyPos(void);
+  void LoadTeach(void);
 };
 //
 

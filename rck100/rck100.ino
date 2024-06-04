@@ -6,7 +6,7 @@
 
 #define TIMER1_ISR_HZ 100
 /*
-  1. The GPIO pin available for EXT. interrupt: Mega, Mega25602, 3, 18, 19, 20
+  1. The GPIO pin available for EXT. interrupt: Mega, Mega2560: 2, 3, 18, 19, 20
   2. mode: 
         LOW to trigger the interrupt whenever the pin is low,
 
@@ -22,15 +22,15 @@
 enum class Command : unsigned short {
   NOP = 0,
   //
-  stack1 = 1,
-  stack2 = 2,
-  stack3 = 3,
-  stack4 = 4,
+  stack1 = 1, // ptp-0
+  stack2 = 2, // ptp-1
+  stack3 = 3, // ptp-2
+  stack4 = 4, // ptp-3
   //
-  pos0 = 5,
-  pos1 = 6,
-  pos2 = 7,
-  pos3 = 8,
+  ready_pos = 5, // 
+  pos1 = 6,      // ptp-4
+  pos2 = 7,      // ptp-5
+  pos3 = 8,      // ptp-6
   //
   ESTOP = 9,
   hold = 10,
@@ -56,8 +56,9 @@ void setup() {
   Serial.begin(9600);
   // 配置按鈕:
   //pinMode(SW_START, INPUT_PULLUP);
-  pinMode(SW_SELECT_PTP, INPUT_PULLUP); // 
+  pinMode(SW_SELECT_PTP, INPUT_PULLUP);  //
   pinMode(SW_SET_POINT, INPUT_PULLUP);
+  pinMode(9, INPUT_PULLUP);
   // Assign PINs for Command:
   for (int i = 0; i < 4; ++i)
     pinMode(COMMAND_PIN[i], INPUT);
@@ -65,6 +66,16 @@ void setup() {
   rb.Init();
   // the other functions:
   pinMode(EXT_INT_PIN, INPUT);
+  //
+  unsigned int ref_joint_angle_count[6];
+  ref_joint_angle_count[0] = 512;
+  ref_joint_angle_count[1] = 480 + 50;
+  ref_joint_angle_count[2] = 428 + 270;
+  ref_joint_angle_count[3] = 588 - 250;
+  ref_joint_angle_count[4] = 790;
+  ref_joint_angle_count[5] = 707;
+  //rb.SetRobotPosition(400, ref_joint_angle_count);
+  rb.LoadTeach();
 }
 //
 void demo1(void) {
@@ -99,14 +110,22 @@ void loop() {
   // --------------------------------------
   char str[100];
   static int i = 0;
-  if(digitalRead(SW_SELECT_PTP) == false){
+  if (digitalRead(SW_SELECT_PTP) == false) {
     sprintf(str, "Select Teach PTP-%i", i);
     Serial.println(str);
-    if(++i == 10)
+    if (++i == 10)
       i = 0;
+    rb.ResetTeach();
+  } else if (digitalRead(SW_SET_POINT) == false) {
+    rb.SetPoint(i, true);
   }
-  else if(digitalRead(SW_SET_POINT) == false){
-    rb.SetPoint(i);
+  else if(digitalRead(9) == false){
+    rb.StartTrajectory(4, 400);
+    rb.StartTrajectory(0, 400);
+    rb.StartTrajectory(4, 400);
+    rb.StartTrajectory(1, 400);
+    rb.StartTrajectory(4, 400);
+    rb.StartTrajectory(2, 400);
   }
   // --------------------------------------
   delay(100);
@@ -211,10 +230,10 @@ Command Operation(void) {
           rb.StartTrajectory(3, 500);
         break;
       }
-    case Command::pos0:
+    case Command::ready_pos:
       {
         if (!rb.isHolded())
-          rb.StartTrajectory(4, 500);
+          rb.MoveToReadyPos();
         break;
       }
     case Command::pos1:
