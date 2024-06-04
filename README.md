@@ -1,64 +1,154 @@
 # eos_final
 This is the repo for eos final project.
 ```
-Start Server
-    |
-    v
-Initialize semaphore and mutex
-    |
-    v
-Create robot arm threads
-    |
-    v
-Server Listen for client connections
-    |
-    v
-+--------------------------------+
-| Client Connect and send number |
-|    of objects to pick          |
-+--------------------------------+
-    |
-    v
-Receive command from client
-    |
-    v
-Update task: Set objects_to_pick
-and reset objects_picked and
-objects_placed
-    |
-    v
-Start picking process (signal sem_pick)
-    |
-    v
-+-----------------------------------------+
-|  Robot Arm Threads Operation (Loop)     |
-+-----------------------------------------+
-    |
-    v
-Acquire semaphore sem_pick to pick object (Arm 1)
-    |
-    v
-Pick object and increment objects_picked
-    |
-    v
-Release semaphore sem_place to place object (Arm 2)
-    |
-    v
-Acquire semaphore sem_place to place object (Arm 2)
-    |
-    v
-Place object and increment objects_placed
-    |
-    v
-Release semaphore sem_pick for next pick (Arm 1)
-    |
-    v
-Check if task is complete inside loop
-    |
-    v
-End Connection if task complete
-    |
-    v
-Wait for new client connection
++-------------------+
+|       main        |
++-------------------+
+                   |
+                   v
++-------------------+
+|  signal(SIGINT)   | --->  sigint_handler (cleanup and exit)
++-------------------+
+                   |
+                   v
++-------------------+
+| initialize robots |
++-------------------+
+                   |
+                   v
++-------------------+
+|  create semaphores|
++-------------------+
+                   |
+                   v
++-------------------+
+|  create socket    |
++-------------------+
+                   |
+                   v
++-------------------+
+| listen for client |
++-------------------+
+                   |
+                   v
++-------------------+
+| accept client     |
++-------------------+
+                   |
+                   v (client connected)
++-------------------+
+| create new thread |
++-------------------+
+                   |
+                   v
++-------------------+
+| command_receiver  |
++-------------------+
+                   |
+                   v
++-------------------+
+| receive command   |
++-------------------+
+                   |
+                   v (client command received)
++--------------------+
+|P(sem_multi_clients)| ---> acquire semaphore (one client at a time)
++--------------------+
+                   |
+                   v (client has semaphore)
++---------------------------+
+|  client_command==END_CMD? |
++---------------------------+
+                     |
+                     v (END_CMD)
++--------------------+
+|  break             | ---> exit thread
++--------------------+
+                    |
+                    v (not END_CMD)
++-------------------+
+|  P(sem_stack)     | ---> acquire semaphore (stack access)
++-------------------+
+                    |
+                    v (stack semaphore acquired)
++----------------------------------+
+|  current_stack < MAX_stack_size? |
++----------------------------------+
+                   |
+                   v (stack full)
++---------------------+
+|  current_stack = 0  | ---> reset stack pointer
++---------------------+
+                   |
+                   v (stack not full)
++---------------------+
+|  V(sem_stack)       | ---> release semaphore (stack access)
++---------------------+
+                   |
+                   v (stack command decoding)
++--------------------------+
+|  switch (client_command) |
++--------------------------+
+                   |
+                   v (case 0)
++----------------------+
+|  do client_command 0 |
++----------------------+
+                   |
+                   v (case 1)
++---------------------+
+|  create threads (1) |   | (create pick_place threads)
++---------------------+   |
+                          v (threads created)
++-------------------+
+|  join threads     |   | (wait for threads to finish)
++-------------------+   |
+                        v
++-----------------------+
+|  V(sem_multi_clients) | ---> release semaphore (client processing done)
++-----------------------+
+                   |
+                   v (case 2)
++---------------------+
+|  create threads (2) |   | (create pick_place threads)
++---------------------+   |
+                          v (threads created)
++--------------------+
+|  join threads      |   | (wait for threads to finish)
++--------------------+   |
+                         v
++-----------------------+
+|  V(sem_multi_clients) | ---> release semaphore (client processing done)
++-----------------------+
+                   |
+                   v (case 3)
++---------------------+
+|  create threads (3) |   | (create pick_place threads)
++---------------------+   |
+                          v (threads created)
++--------------------+
+|  join threads      |   | (wait for threads to finish)
++--------------------+   |
+                         v
++-----------------------+
+|  V(sem_multi_clients) | ---> release semaphore (client processing done)
++-----------------------+
+                   |
+                   v (default)
++-------------------+
+|  do nothing       |
++-------------------+
+                   |
+                   v
++-------------------+
+|  close client     |
++-------------------+
+                   |
+                   v
++-------------------+
+|  exit thread      |
++-------------------+
+                   |
+                   v (client disconnected)
 
 ```
