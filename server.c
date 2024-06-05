@@ -558,6 +558,7 @@ int RobotCommand(Robot* rb, Command cmd){
 }
 
 
+
 void initRobot(Robot* rb, int* gpio_assign){
     memcpy(rb->gpio_out, gpio_assign, 5*sizeof(int));
     rb->chip = gpiod_chip_open("/dev/gpiochip4");
@@ -585,6 +586,7 @@ void initRobot(Robot* rb, int* gpio_assign){
         goto cleanup;
 
     }
+    
     
     cleanup:
         sleep(0);
@@ -638,3 +640,4 @@ int readStatus(Robot* rb){
     // return value;
     return values[0];
 }
+
