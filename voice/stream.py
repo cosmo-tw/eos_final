@@ -33,7 +33,7 @@ def run_cpp_program():
         if output:
             # Process the output to remove commas, periods, and convert to lowercase
             processed_output = output.strip().replace(',', '').replace('.', '').replace('!', '').lower()
-            print(processed_output)  # Print to console (optional)
+            print(processed_output)  # Print to console
             output_fifo.append(processed_output)
             
             # Check 

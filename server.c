@@ -134,13 +134,15 @@ void sigint_handler(int signum){
 
 //A robot arm control routine
 void *pick_place(void *arg) {
-    Robot* rb = (Robot*)arg;
+    // Robot* rb = (Robot*)arg;
     printf("pick_place: Started, ID=%d\n",(int)pthread_self());
     int arm_id = 0; 
 
     //check robot arm is avaliable
     P(sem_counting);
     P(sem_arm);
+    //printf("rb 0 before status: %d\n", rb[0].status);
+    //printf("rb 1 before status: %d\n", rb[1].status);
     if (rb[0].status == 0){
         rb[0].status = 1; 
         arm_id = 0; //robot arm 1
@@ -152,18 +154,24 @@ void *pick_place(void *arg) {
     V(sem_arm);
     
     // ready position
+    printf("arm_id: %d, readypos\n", arm_id);
+    //printf("rb 0 status: %d\n", rb[0].status);
+    //printf("rb 1 status: %d\n", rb[1].status);
+
     RobotCommand(&rb[arm_id], readypos); 
+    sleep(10);
 
     //control robot arm (with current_stack) needs to check current stack
     P(sem_stack);
-    RobotCommand(&rb[arm_id], (Command)current_stack); 
+    RobotCommand(&rb[arm_id], (Command)current_stack+1); 
+    printf("arm_id: %d, current_stack: %d\n", arm_id, current_stack+1);
     current_stack += 1;
 
     // wait for robot arm to finish
-    while (rb[arm_id].status == 3){
+    //while (rb[arm_id].status == 2){
+    sleep(10);
         // read(); 
-    }
-    
+    //}
     V(sem_stack);
     
     // release robot arm semaphore
@@ -234,6 +242,7 @@ void *command_reciever(void *fd){
                     pthread_join(threads[i], NULL);
                 }
                 V(sem_multi_clients); // release semaphore
+                current_stack = 0;
                 break;
             case 2:
                 for(int i = 0;i < 2;i++){
@@ -250,6 +259,7 @@ void *command_reciever(void *fd){
                     pthread_join(threads[i], NULL);
                 }
                 V(sem_multi_clients); // release semaphore
+                current_stack = 0;
                 break;
 
             case 3:
@@ -267,6 +277,7 @@ void *command_reciever(void *fd){
                     pthread_join(threads[i], NULL);
                 }
                 V(sem_multi_clients); // release semaphore
+                current_stack = 0;
                 break;
                 //do client_command 1
                 //create pick_place thread to control arm
@@ -290,7 +301,7 @@ int main(int argc, char *argv[]) {
     unsigned int rb1_gpio_assign[5] = {23, 4, 17, 27, 22};
     initRobot(rb, rb1_gpio_assign);
 
-    unsigned int rb2_gpio_assign[5] = {0, 0, 0, 0, 0}; // to-do
+    unsigned int rb2_gpio_assign[5] = {24, 10, 9, 11, 0}; // done
     initRobot(rb+1, rb2_gpio_assign);
 
      //semaphore (two binary and one counting semaphore)

@@ -3,7 +3,8 @@
 SESSION="demo"
 PORT=8888
 
-
+make clean
+make all
 
 tmux has-session -t $SESSION 2>/dev/null
 
