@@ -1,6 +1,6 @@
 #ifndef RCK100_ROBOT
 #define RCK100_ROBOT
-#define ROBOT1
+#define ROBOT2
 
 #include"A1_16.h"
 #include"teach_point.h"

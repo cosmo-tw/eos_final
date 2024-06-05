@@ -88,7 +88,7 @@ void Robot::ServoOFF(void){
   }
   servo_on = false;
   Serial.print("Servo off.\n");
-  delay(200);
+  //delay(200);
   this->status = Status::disabled;
 }
 //
@@ -183,15 +183,17 @@ void Robot::StartTrajectory(int ptp_index, unsigned int step_time){
       if(status == Status::disabled){
         goto T;
       }
-      if(status == Status::hold){
+      else if(status == Status::hold){
         holding_index[0] = ptp_index;
         holding_index[1] = i-1;
         goto T;
       }
-      sprintf(str, "Moving to the point[%d][%d]......\n", ptp_index, i);
-      Serial.println(str);
-      SetRobotPosition(300, &set_point[ptp_index][i][0]);
-      delay(step_time);
+      else{
+        sprintf(str, "Moving to the point[%d][%d]......\n", ptp_index, i);
+        Serial.println(str);
+        SetRobotPosition(300, &set_point[ptp_index][i][0]);
+        delay(step_time);
+      }
 		}
 	}
 	else{
@@ -351,5 +353,8 @@ void Robot::LoadTeach(void){
     for(int j = 0; j<TEACH_POINT_SIZE; ++j)
       for(int k = 0; k<6; ++k)
         this->set_point[2][j][k] = READY_TO_STACK3[j][k];
-    
+
+    for(int j = 0; j<TEACH_POINT_SIZE; ++j)
+      for(int k = 0; k<6; ++k)
+        this->set_point[3][j][k] = READY_TO_STACK4[j][k];    
 }

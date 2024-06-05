@@ -1,8 +1,8 @@
 #include "rck100_robot.h"
 #define SW_START 3
-#define SW_SET_POINT 8
+#define SW_SET_POINT 24
 #define SW_SERVO_ON 5
-#define SW_SELECT_PTP 7
+#define SW_SELECT_PTP 22
 
 #define TIMER1_ISR_HZ 100
 /*
@@ -18,6 +18,10 @@
 */
 #define EXT_INT_PIN 2
 #define EXT_INT_MODE RISING
+#define BUSY_FLAG_PIN 13
+int BUSY_FLAG;
+#define SetBusyFlag digitalWrite(BUSY_FLAG_PIN, true); BUSY_FLAG = 1;
+#define ResetBusyFlag digitalWrite(BUSY_FLAG_PIN, false); BUSY_FLAG = 0;
 //
 enum class Command : unsigned short {
   NOP = 0,
@@ -52,13 +56,15 @@ void initExtInterrupt(void);
 void ExtIntISR(void);
 //
 void setup() {
+  BUSY_FLAG = 0;
   // 初始化系統：
   Serial.begin(9600);
   // 配置按鈕:
   //pinMode(SW_START, INPUT_PULLUP);
   pinMode(SW_SELECT_PTP, INPUT_PULLUP);  //
   pinMode(SW_SET_POINT, INPUT_PULLUP);
-  pinMode(9, INPUT_PULLUP);
+  pinMode(26, INPUT_PULLUP);
+  pinMode(BUSY_FLAG_PIN, OUTPUT);
   // Assign PINs for Command:
   for (int i = 0; i < 4; ++i)
     pinMode(COMMAND_PIN[i], INPUT);
@@ -76,6 +82,7 @@ void setup() {
   ref_joint_angle_count[5] = 707;
   //rb.SetRobotPosition(400, ref_joint_angle_count);
   rb.LoadTeach();
+  digitalWrite(BUSY_FLAG_PIN, false);
 }
 //
 void demo1(void) {
@@ -107,6 +114,9 @@ void loop() {
     Operation();
     flag = 0;
   }
+  /*else if(flag == 1 && BUSY_FLAG == 1){
+    ResetBusyFlag
+  }*/
   // --------------------------------------
   char str[100];
   static int i = 0;
@@ -119,13 +129,15 @@ void loop() {
   } else if (digitalRead(SW_SET_POINT) == false) {
     rb.SetPoint(i, true);
   }
-  else if(digitalRead(9) == false){
-    rb.StartTrajectory(4, 400);
-    rb.StartTrajectory(0, 400);
-    rb.StartTrajectory(4, 400);
-    rb.StartTrajectory(1, 400);
-    rb.StartTrajectory(4, 400);
-    rb.StartTrajectory(2, 400);
+  else if(digitalRead(26) == false){
+      rb.StartTrajectory(4, 400);
+      rb.StartTrajectory(0, 400);
+      rb.StartTrajectory(4, 400);
+      rb.StartTrajectory(1, 400);
+      rb.StartTrajectory(4, 400);
+      rb.StartTrajectory(2, 400);
+      rb.StartTrajectory(4, 400);
+      rb.StartTrajectory(3, 400);
   }
   // --------------------------------------
   delay(100);
@@ -162,6 +174,7 @@ void initExtInterrupt(void) {
 //
 void ExtIntISR(void) {
   //Operation();
+  SetBusyFlag
   flag = 1;
   Serial.println("EXT");
 }
@@ -171,9 +184,9 @@ Command ReadCommand(void) {
   for (int i = 0; i < 4; ++i) {
     if (digitalRead(COMMAND_PIN[i])) {
       cmd |= 8 >> i;
-      //Serial.print("1, ");
+      Serial.print("1, ");
     } else {
-      //Serial.print("0, ");
+      Serial.print("0, ");
     }
   }
   return static_cast<Command>(cmd);
@@ -183,75 +196,109 @@ Command Operation(void) {
   switch (ReadCommand()) {
     case Command::ESTOP:
       {
+        Serial.println("EmgStop");
         rb.EmgStop();
+        
         break;
       }
     case Command::hold:
       {
+        Serial.println("Hold");
         rb.Hold();
+        
         break;
       }
     case Command::resume:
       {
+        Serial.println("Resume");
         rb.Resume();
+        
         break;
       }
     case Command::svon:
       {
+        Serial.println("Servo ON");
         rb.ServoON();
+        
         break;
       }
     case Command::svoff:
       {
+        Serial.println("Servo OFF");
         rb.ServoOFF();
+        
         break;
       }
     case Command::stack1:
       {
+        SetBusyFlag
+        Serial.println("Ready to stack 1");
         if (!rb.isHolded())
           rb.StartTrajectory(0, 500);
+        ResetBusyFlag
         break;
       }
     case Command::stack2:
       {
+        SetBusyFlag
+        Serial.println("Ready to stack 2");
         if (!rb.isHolded())
           rb.StartTrajectory(1, 500);
+        ResetBusyFlag
         break;
       }
     case Command::stack3:
       {
+        SetBusyFlag
+        Serial.println("Ready to stack 3");
         if (!rb.isHolded())
           rb.StartTrajectory(2, 500);
+        ResetBusyFlag
         break;
       }
     case Command::stack4:
       {
+        SetBusyFlag
+        Serial.println("Ready to stack 4");
         if (!rb.isHolded())
           rb.StartTrajectory(3, 500);
+        ResetBusyFlag
         break;
       }
     case Command::ready_pos:
       {
+        SetBusyFlag
+        Serial.println("Ready to pick position");
         if (!rb.isHolded())
-          rb.MoveToReadyPos();
+          rb.StartTrajectory(4, 500);
+        ResetBusyFlag
         break;
       }
     case Command::pos1:
-      {
+      {/*
+        SetBusyFlag;
+        Serial.println("pos 1");
         if (!rb.isHolded())
           rb.StartTrajectory(5, 500);
+        ResetBusyFlag;*/
         break;
       }
     case Command::pos2:
-      {
+      {/*
+        SetBusyFlag;
+        Serial.println("pos 2");
         if (!rb.isHolded())
           rb.StartTrajectory(6, 500);
+        ResetBusyFlag;*/
         break;
       }
     case Command::pos3:
-      {
+      {/*
+        SetBusyFlag;
+        Serial.println("pos 3");
         if (!rb.isHolded())
           rb.StartTrajectory(7, 500);
+        ResetBusyFlag;*/
         break;
       }
     case Command::reset:
