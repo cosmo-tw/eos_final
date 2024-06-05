@@ -169,17 +169,22 @@ void *pick_place(void *arg) {
     //printf("rb 0 status: %d\n", rb[0].status);
     //printf("rb 1 status: %d\n", rb[1].status);
 
-P(sem_temp);
+    P(sem_temp);
     RobotCommand(&rb[arm_id], readypos); 
     V(sem_temp);
-    sleep(1);
+    usleep(250000);
     
     //sleep(10);
     // while busy, wait
     int a;
     P(sem_temp);
     while ((a = readStatus(&rb[arm_id]))){
-        sleep(1);
+        usleep(250000);
+        /*
+        int values[5] = {0, 0, 0, 0, 0};
+        err = gpiod_line_get_value_bulk(&rb[arm_id].lines, values);
+        values[0] = 0;
+        err = gpiod_line_set_value_bulk(&rb->lines, values);*/
         // printf("%d\n", a);
         printf("arm_id: %d, waiting\n", arm_id);
     }
@@ -188,7 +193,7 @@ P(sem_temp);
     //control robot arm (with current_stack) needs to check current stack
     P(sem_stack);
     RobotCommand(&rb[arm_id], (Command)current_stack+1); 
-    sleep(1);
+    usleep(250000);
     printf("arm_id: %d, current_stack: %d\n", arm_id, current_stack+1);
     current_stack += 1;
     
@@ -197,7 +202,7 @@ P(sem_temp);
     
     while (readStatus(&rb[arm_id])){
         printf("arm_id: %d, waiting\n", arm_id);
-        sleep(1);
+        usleep(250000);
     }
     V(sem_stack);
     
