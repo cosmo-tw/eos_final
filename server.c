@@ -169,7 +169,9 @@ void *pick_place(void *arg) {
     //printf("rb 0 status: %d\n", rb[0].status);
     //printf("rb 1 status: %d\n", rb[1].status);
 
+P(sem_temp);
     RobotCommand(&rb[arm_id], readypos); 
+    V(sem_temp);
     sleep(1);
     
     //sleep(10);
@@ -217,6 +219,7 @@ void *command_reciever(void *fd){
     int *tmp=(int*)fd;
     int forClientSockfd;
     forClientSockfd=*tmp;
+    
     free(fd);
 
     //create threads to control robot arm
@@ -235,6 +238,10 @@ void *command_reciever(void *fd){
             
             client_command=atoi(inputBuffer);
             P(sem_multi_clients); // only one client can send command at a time
+            // printf("Client fd : %d\n",forClientSockfd);
+            #ifdef DEBUG
+                goto test;
+            #endif
             if(client_command==END_CMD){
                 //ending client_command
                 break;
@@ -307,7 +314,23 @@ void *command_reciever(void *fd){
                 break;
                 //do client_command 1
                 //create pick_place thread to control arm
-                
+            case 4:
+                for(int i = 0;i < 4;i++){
+                    rc = pthread_create(&threads[i], NULL, pick_place, (void *)rb);
+                    if (rc){
+                        printf("ERROR; pthread_create() returns %d\n", rc);
+                        exit(-1);
+                        break;
+                    }
+                    printf("do client_command 4\n");
+                }
+                // make sure all threads are finished
+                for(int i = 0;i < 4;i++){
+                    pthread_join(threads[i], NULL);
+                }
+                V(sem_multi_clients); // release semaphore
+                current_stack = 0;
+                break; 
 
             default:
                 break;
@@ -315,6 +338,10 @@ void *command_reciever(void *fd){
             
         }
     }
+    #ifdef DEBUG
+        test:
+        V(sem_multi_clients);
+    #endif
     close(forClientSockfd);
     pthread_exit(NULL);
 }

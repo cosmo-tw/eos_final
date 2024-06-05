@@ -9,6 +9,7 @@
 #include <termios.h>
 
 #define END_CMD 10
+#define DEMO
 
 //reference from https://stackoverflow.com/questions/7469139/what-is-the-equivalent-to-getch-getche-in-linux
 char getch(void)
@@ -60,23 +61,33 @@ int main(int argc , char *argv[])
     int i;
     int command[10]={0,1,2,3,4,5,6,7,8,9};
     char tmp;
-    int sel;
+    int sel = 0;
+    #ifdef DEMO
+    if (argc == 4)
+        sel = atoi(argv[3]);
+    #endif
     char message[256];
     while (1)
     {
         printf("Send a command\n");
-        scanf("%d",&sel);
-        system("clear");
+        #ifdef DEMO
+        if (sel == 0)
+        #endif
+            scanf("%d",&sel);
+        // system("clear");
         if (sel==10){
             break;
         }
-        while ((tmp = getchar()) != '\n') {}
+        // while ((tmp = getchar()) != '\n') {}
         memset(message,'\0',sizeof(message));
         sprintf(message,"%d",sel);
         send(sockfd,message,sizeof(message),0);
         if(sel==END_CMD){
             break;
         }
+        #ifdef DEMO
+        sel = 0;
+        #endif
     }
     
     close(sockfd);

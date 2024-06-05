@@ -1,0 +1,1 @@
+sudo gpioset gpiochip4 24=0; gpioset gpiochip4 24=1 10=0 9=1 11=0 0=1
