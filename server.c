@@ -54,11 +54,16 @@ typedef struct Robot{
      struct gpiod_chip *chip;
      struct gpiod_line_request_config config;
      struct gpiod_line_bulk lines;
+     struct gpiod_line_bulk lines_read;
+     struct gpiod_line_request_config config_read;
      unsigned int gpio_out[5];
      int status;  // 0: idle, 1: active , 2: busy
 }Robot;
 int RobotCommand(Robot* rb, Command cmd);
 void initRobot(Robot* rb, int* gpio_assign);
+void initRead(Robot* rb, int* gpio_assign);
+int readStatus(Robot* rb);
+
 Robot rb[2];
 
 
@@ -160,6 +165,14 @@ void *pick_place(void *arg) {
 
     RobotCommand(&rb[arm_id], readypos); 
     sleep(10);
+    // while busy, wait
+    /*
+    int a;
+    while ((a = readStatus(&rb[arm_id]))){
+        sleep(1);
+        printf("%d\n", a);
+        printf("arm_id: %d, waiting\n", arm_id);
+    }*/
 
     //control robot arm (with current_stack) needs to check current stack
     P(sem_stack);
@@ -167,12 +180,15 @@ void *pick_place(void *arg) {
     printf("arm_id: %d, current_stack: %d\n", arm_id, current_stack+1);
     current_stack += 1;
 
-    // wait for robot arm to finish
-    //while (rb[arm_id].status == 2){
     sleep(10);
-        // read(); 
-    //}
+    // while busy, wait
+    /*
+    while (readStatus(&rb[arm_id])){
+        printf("arm_id: %d, waiting\n", arm_id);
+        sleep(1);
+    }
     V(sem_stack);
+    */
     
     // release robot arm semaphore
     P(sem_arm);
@@ -300,9 +316,13 @@ int main(int argc, char *argv[]) {
     signal(SIGINT,sigint_handler);
     unsigned int rb1_gpio_assign[5] = {23, 4, 17, 27, 22};
     initRobot(rb, rb1_gpio_assign);
+    unsigned int rb1_gpio_read[1] = {5};
+    initRead(rb, rb1_gpio_read);
 
     unsigned int rb2_gpio_assign[5] = {24, 10, 9, 11, 0}; // done
     initRobot(rb+1, rb2_gpio_assign);
+    unsigned int rb2_gpio_read[1] = {6};
+    initRead(rb+1, rb2_gpio_read);
 
      //semaphore (two binary and one counting semaphore)
     sem_stack = semget(SEM_KEY_STACK, 1,IPC_CREAT | IPC_EXCL| SEM_MODE); 
@@ -516,6 +536,7 @@ int RobotCommand(Robot* rb, Command cmd){
     return ret;
 }
 
+
 void initRobot(Robot* rb, int* gpio_assign){
     memcpy(rb->gpio_out, gpio_assign, 5*sizeof(int));
     rb->chip = gpiod_chip_open("/dev/gpiochip4");
@@ -543,6 +564,56 @@ void initRobot(Robot* rb, int* gpio_assign){
         goto cleanup;
 
     }
+    
     cleanup:
         sleep(0);
+}
+
+// send request to gpio for reading
+void initRead(Robot* rb, int* gpio_assign){
+    // memcpy(rb->gpio_out, gpio_assign, sizeof(int));
+    // rb->chip = gpiod_chip_open("/dev/gpiochip4");
+    // if(!rb->chip){
+    //     perror("gpiod_chip_open");
+    //     goto cleanup;
+    // }
+    // read
+    int err = gpiod_chip_get_lines(rb->chip, gpio_assign, 1, &rb->lines_read);
+    if(err){
+        perror("gpiod_chip_get_lines");
+        goto cleanup_2;
+    }
+
+    memset(&rb->config_read, 0, sizeof(rb->config_read));
+    rb->config_read.consumer = "robot_status";
+    rb->config_read.request_type = GPIOD_LINE_REQUEST_DIRECTION_INPUT;
+    rb->config_read.flags = 0;
+
+    int r_values[1] = {0};
+    // get the bulk lines setting default value to 0
+    err = gpiod_line_request_bulk(&rb->lines_read, &rb->config_read, r_values);
+    if(err)
+    {
+        perror("gpiod_line_request_bulk");
+        goto cleanup_2;
+
+    }
+    cleanup_2:
+        sleep(0);
+} 
+
+// read the value from gpio
+int readStatus(Robot* rb){
+    int ret = 0;
+    int err = 0;
+    int values[1] = {0};
+    int value = 0;
+    // value = gpiod_line_get_value(&rb->lines_read);
+    err = gpiod_line_get_value_bulk(&rb->lines_read, values);
+    if(err){
+        perror("gpiod_line_get_value_bulk");
+        ret = -1;
+    }
+    // return value;
+    return values[0];
 }
