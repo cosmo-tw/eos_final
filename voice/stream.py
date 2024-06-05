@@ -8,7 +8,7 @@ rb1_gpio_assign = [23, 4, 17, 27, 22]
 rb2_gpio_assign = [24, 10, 9, 11, 0]
 
 # Open GPIO chip once and reuse the handle
-h = lgpio.gpiochip_open(0)
+h = lgpio.gpiochip_open(4)
 
 def set_gpio_values(values, pins):
     try:
@@ -20,7 +20,7 @@ def set_gpio_values(values, pins):
 
 def run_cpp_program():
     # Command to run the C++ program with specified arguments
-    command = ['../whisper.cpp/stream', '-m', '../whisper.cpp/models/ggml-tiny.en.bin', '-t', '4', '--step', '1010', '--length', '1010', '-c', '0']
+    command = ['../whisper.cpp/stream', '-m', '../whisper.cpp/models/ggml-tiny.en.bin', '-t', '3', '--step', '1010', '--length', '3000', '-c', '0']
 
     # Create a deque (double-ended queue) to act as a FIFO queue
     output_fifo = collections.deque()
