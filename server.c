@@ -473,7 +473,7 @@ int main(int argc, char *argv[]) {
     memset(message,'\0',sizeof(message));
     sprintf(message,"%d",getpid());
     send(panelfd,message,sizeof(message),0);
-
+    close(panelfd);
 
     //panel sigaction
     struct sigaction hold_action,resume_action;

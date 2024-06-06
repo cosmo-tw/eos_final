@@ -1,7 +1,7 @@
 all: server client panel
 
 server: server.c
-	gcc -o server server.c -lgpiod
+	gcc -g -o server server.c -lgpiod
 
 client: client.c
 	gcc -o client client.c
