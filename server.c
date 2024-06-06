@@ -143,78 +143,79 @@ void sigint_handler(int signum){
     exit(signum);
 }
 
-//A robot arm control routine
 void *pick_place(void *arg) {
-    // Robot* rb = (Robot*)arg;
-    printf("pick_place: Started, ID=%d\n",(int)pthread_self());
+    // Robot* rb = (Robot*)arg; // Uncomment and initialize the Robot pointer appropriately
+    printf("Pick place: Started, ID = %lu.\n", (unsigned long)pthread_self());
     int arm_id = 0; 
 
-    //check robot arm is avaliable
+    // Check if a robot arm is available
     P(sem_counting);
     P(sem_arm);
-    //printf("rb 0 before status: %d\n", rb[0].status);
-    //printf("rb 1 before status: %d\n", rb[1].status);
-    if (rb[0].status == 0){
+    
+    if (rb[0].status == 0) {
         rb[0].status = 1; 
-        arm_id = 0; //robot arm 1
-    }
-    else{
+        arm_id = 0; // Robot arm 1
+    } else {
         rb[1].status = 1;
-        arm_id = 1; //robot arm 2
+        arm_id = 1; // Robot arm 2
     }
     V(sem_arm);
     
-    // ready position
-    printf("arm_id: %d, readypos\n", arm_id);
-    //printf("rb 0 status: %d\n", rb[0].status);
-    //printf("rb 1 status: %d\n", rb[1].status);
+    // Move to the ready position
+    printf("arm_id %d is commanded to [READYPOS].\n", arm_id);
 
+    // Only one robot arm can be commanded at a time
     P(sem_temp);
     RobotCommand(&rb[arm_id], readypos); 
     V(sem_temp);
     usleep(250000);
     
-    //sleep(10);
-    // while busy, wait
-    int a;
+    // Wait while the arm is busy (make sure the arm is at readypos)
     P(sem_temp);
-    while ((a = readStatus(&rb[arm_id]))){
+    int prev_status = -1; // Initialize previous status with an invalid value
+    while (readStatus(&rb[arm_id])) {
+        if (prev_status != 1) { // Only print when status changes
+            //printf("arm_id %d is moving to [READYPOS].\n", arm_id);
+            prev_status = 1;
+        }
         usleep(250000);
-        /*
-        int values[5] = {0, 0, 0, 0, 0};
-        err = gpiod_line_get_value_bulk(&rb[arm_id].lines, values);
-        values[0] = 0;
-        err = gpiod_line_set_value_bulk(&rb->lines, values);*/
-        // printf("%d\n", a);
-        printf("arm_id: %d, waiting\n", arm_id);
+    }
+    if (prev_status != 0) {
+        printf("arm_id %d is at [READYPOS].\n", arm_id); // Print when arm becomes ready
     }
     V(sem_temp);
 
-    //control robot arm (with current_stack) needs to check current stack
+    // Control the robot arm (with current_stack), checking the current stack
     P(sem_stack);
-    RobotCommand(&rb[arm_id], (Command)current_stack+1); 
+    RobotCommand(&rb[arm_id], (Command)(current_stack + 1)); 
     usleep(250000);
-    printf("arm_id: %d, current_stack: %d\n", arm_id, current_stack+1);
+    printf("arm_id %d is commanded to [STACK %d].\n", arm_id, current_stack + 1);
     current_stack += 1;
-    
-    // sleep(10);
-    // while busy, wait
-    
-    while (readStatus(&rb[arm_id])){
-        printf("arm_id: %d, waiting\n", arm_id);
+
+    // Wait while the arm is busy (make sure the arm completes the current stack)
+    prev_status = -1; // Reinitialize previous status
+    while (readStatus(&rb[arm_id])) {
+        if (prev_status != 1) {
+            //printf("arm_id %d is [STACKING].\n", arm_id);
+            prev_status = 1;
+        }
         usleep(250000);
+    }
+    if (prev_status != 0) {
+        printf("arm_id %d completed [STACKING].\n", arm_id); // Print when stacking is done
     }
     V(sem_stack);
     
-    
-    // release robot arm semaphore
+    // Release the robot arm semaphore
     P(sem_arm);
-    // robot arm finished
-    rb[arm_id].status = 0;
+    rb[arm_id].status = 0; // Robot arm finished
     V(sem_arm);
     V(sem_counting);
+
     pthread_exit(NULL);
 }
+
+
 
 
 //a client routine
