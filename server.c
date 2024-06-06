@@ -16,6 +16,8 @@
 #include <pthread.h>
 #include <sys/sem.h>
 #include <gpiod.h>
+#include <semaphore.h>
+
 
 
 
@@ -72,7 +74,7 @@ Robot rb[2];
 //gloabal variable for different threads or functions
 int sockfd;
 int current_stack = 0; 
-int sem_stack,sem_arm,sem_counting,sem_multi_clients, sem_temp;
+int sem_stack,sem_arm, sem_counting,sem_multi_clients, sem_temp;
 double robot_stage1[2]; //represent robot arm control data
 double robot_stage2[2]; //represent robot arm control data
 int robot_active[2]={0,0}; //record robot arms are avaliable or not //0:avaliable ,1:active
@@ -148,16 +150,17 @@ void sigint_handler(int signum){
 //panel handeler:hold
 void hold_handeler(int signo, siginfo_t *info, void *context)
 {
-    sem_getvalue(&sem_counting,&num_release_sem);
+    
+    sem_getvalue((sem_t *)&sem_counting, &num_release_sem);
     int i;
     for(i=0;i<num_release_sem;i++){
         P(sem_counting);
     }
-    P(sem_arm);
+    // P(sem_arm);
 
     RobotCommand(&rb[0], hold);
     RobotCommand(&rb[1], hold);
-
+    printf("hold\n");
 }
 //panel handeler:resume
 void resume_handeler(int signo, siginfo_t *info, void *context)
@@ -166,9 +169,10 @@ void resume_handeler(int signo, siginfo_t *info, void *context)
     for(i=0;i<num_release_sem;i++){
         V(sem_counting);
     }
-    num_release_sem=0;
+    num_release_sem = 0;
     RobotCommand(&rb[0], resume);
     RobotCommand(&rb[1], resume);
+    printf("resume\n");
 }
 //A robot arm control routine
 void *pick_place(void *arg) {

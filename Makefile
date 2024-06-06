@@ -1,4 +1,4 @@
-all: server client
+all: server client panel
 
 server: server.c
 	gcc -o server server.c -lgpiod
@@ -6,7 +6,10 @@ server: server.c
 client: client.c
 	gcc -o client client.c
 
+panel: panel.c
+	gcc -o panel panel.c
+
 
 
 clean:
-	rm -f server client 
+	rm -f server client panel

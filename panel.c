@@ -1,3 +1,4 @@
+// port 6666
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -8,6 +9,8 @@
 #include <arpa/inet.h>
 #include <termios.h>
 #include <sys/ipc.h> 
+#include <signal.h>
+
 
 #define END_CMD 10
 #define DEMO
@@ -44,7 +47,10 @@ char getch(void)
 
 int main(int argc , char *argv[])
 {
+    // ctrl+c handler
     signal(SIGINT,sigint_handler);
+
+
     //socket creation
     int yes = 1;
     sockfd= socket(PF_INET,SOCK_STREAM,0);
