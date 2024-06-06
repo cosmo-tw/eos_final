@@ -27,7 +27,7 @@
 #define SEM_TEMP         1112223444
 #define MAX_client 5
 #define MAX_stack_size 4
-#define END_CMD 10
+#define END_CMD 20
 
 // for robot arm control 
 typedef enum Command{
@@ -77,6 +77,8 @@ double robot_stage1[2]; //represent robot arm control data
 double robot_stage2[2]; //represent robot arm control data
 int robot_active[2]={0,0}; //record robot arms are avaliable or not //0:avaliable ,1:active
 
+int current_status[2];
+int num_release_sem=0;
 /* P () - returns 0 if OK; -1 if there was a problem */ 
 int P (int s)  
 { 
@@ -143,6 +145,31 @@ void sigint_handler(int signum){
     exit(signum);
 }
 
+//panel handeler:hold
+void hold_handeler(int signo, siginfo_t *info, void *context)
+{
+    sem_getvalue(&sem_counting,&num_release_sem);
+    int i;
+    for(i=0;i<num_release_sem;i++){
+        P(sem_counting);
+    }
+    P(sem_arm);
+
+    RobotCommand(&rb[0], hold);
+    RobotCommand(&rb[1], hold);
+
+}
+//panel handeler:resume
+void resume_handeler(int signo, siginfo_t *info, void *context)
+{
+    int i;
+    for(i=0;i<num_release_sem;i++){
+        V(sem_counting);
+    }
+    num_release_sem=0;
+    RobotCommand(&rb[0], resume);
+    RobotCommand(&rb[1], resume);
+}
 //A robot arm control routine
 void *pick_place(void *arg) {
     // Robot* rb = (Robot*)arg;
@@ -226,31 +253,25 @@ void *command_reciever(void *fd){
     forClientSockfd=*tmp;
     
     free(fd);
-
     //create threads to control robot arm
     pthread_t threads[MAX_stack_size];
     int t=0;
     int rc;
-
     //communication
     int client_command;
     char inputBuffer[256];
-    char outputBuffer[256];
     while (1)
     {
 
         if (recv(forClientSockfd,inputBuffer,sizeof(inputBuffer),0) != -1){
             
             client_command=atoi(inputBuffer);
-            P(sem_multi_clients); // only one client can send command at a time
-            // printf("Client fd : %d\n",forClientSockfd);
+            if(client_command==END_CMD){
+                break;
+            }
             #ifdef DEBUG
                 goto test;
             #endif
-            if(client_command==END_CMD){
-                //ending client_command
-                break;
-            }
             P(sem_stack);
             if (current_stack >= MAX_stack_size){
                 //stack is full
@@ -261,86 +282,89 @@ void *command_reciever(void *fd){
             //client_command decoding
             switch (client_command)
             {
-            case 0:
-                //do client_command 0
-                printf("do client_command 0\n");
-                break;
-            case 1:
-                for(int i = 0;i < 1;i++){
-                    rc = pthread_create(&threads[i], NULL, pick_place, (void *)rb);
-                    if (rc){
-                        printf("ERROR; pthread_create() returns %d\n", rc);
-                        exit(-1);
-                        break;
+                case 0:
+                    //do client_command 0
+                    printf("do client_command 0\n");
+                    break;
+                case 1:
+                    P(sem_multi_clients); // only one client can send command at a time
+                    for(int i = 0;i < 1;i++){
+                        rc = pthread_create(&threads[i], NULL, pick_place, (void *)rb);
+                        if (rc){
+                            printf("ERROR; pthread_create() returns %d\n", rc);
+                            exit(-1);
+                            break;
+                        }
+                        printf("do client_command 1\n");
                     }
-                    printf("do client_command 1\n");
-                }
-                // make sure all threads are finished
-                for(int i = 0;i < 1;i++){
-                    pthread_join(threads[i], NULL);
-                }
-                V(sem_multi_clients); // release semaphore
-                current_stack = 0;
-                break;
-            case 2:
-                for(int i = 0;i < 2;i++){
-                    rc = pthread_create(&threads[i], NULL, pick_place, (void *)rb);
-                    if (rc){
-                        printf("ERROR; pthread_create() returns %d\n", rc);
-                        exit(-1);
-                        break;
+                    // make sure all threads are finished
+                    for(int i = 0;i < 1;i++){
+                        pthread_join(threads[i], NULL);
                     }
-                    printf("do client_command 2\n");
-                }
-                // make sure all threads are finished
-                for(int i = 0;i < 2;i++){
-                    pthread_join(threads[i], NULL);
-                }
-                V(sem_multi_clients); // release semaphore
-                current_stack = 0;
-                break;
+                    V(sem_multi_clients); // release semaphore
+                    current_stack = 0;
+                    break;
+                case 2:
+                    P(sem_multi_clients); // only one client can send command at a time
+                    for(int i = 0;i < 2;i++){
+                        rc = pthread_create(&threads[i], NULL, pick_place, (void *)rb);
+                        if (rc){
+                            printf("ERROR; pthread_create() returns %d\n", rc);
+                            exit(-1);
+                            break;
+                        }
+                        printf("do client_command 2\n");
+                    }
+                    // make sure all threads are finished
+                    for(int i = 0;i < 2;i++){
+                        pthread_join(threads[i], NULL);
+                    }
+                    V(sem_multi_clients); // release semaphore
+                    current_stack = 0;
+                    break;
 
-            case 3:
-                for(int i = 0;i < 3;i++){
-                    rc = pthread_create(&threads[i], NULL, pick_place, (void *)rb);
-                    if (rc){
-                        printf("ERROR; pthread_create() returns %d\n", rc);
-                        exit(-1);
-                        break;
+                case 3:
+                    P(sem_multi_clients); // only one client can send command at a time
+                    for(int i = 0;i < 3;i++){
+                        rc = pthread_create(&threads[i], NULL, pick_place, (void *)rb);
+                        if (rc){
+                            printf("ERROR; pthread_create() returns %d\n", rc);
+                            exit(-1);
+                            break;
+                        }
+                        printf("do client_command 3\n");
                     }
-                    printf("do client_command 3\n");
-                }
-                // make sure all threads are finished
-                for(int i = 0;i < 3;i++){
-                    pthread_join(threads[i], NULL);
-                }
-                V(sem_multi_clients); // release semaphore
-                current_stack = 0;
-                break;
-                //do client_command 1
-                //create pick_place thread to control arm
-            case 4:
-                for(int i = 0;i < 4;i++){
-                    rc = pthread_create(&threads[i], NULL, pick_place, (void *)rb);
-                    if (rc){
-                        printf("ERROR; pthread_create() returns %d\n", rc);
-                        exit(-1);
-                        break;
+                    // make sure all threads are finished
+                    for(int i = 0;i < 3;i++){
+                        pthread_join(threads[i], NULL);
                     }
-                    printf("do client_command 4\n");
-                }
-                // make sure all threads are finished
-                for(int i = 0;i < 4;i++){
-                    pthread_join(threads[i], NULL);
-                }
-                V(sem_multi_clients); // release semaphore
-                current_stack = 0;
-                break; 
+                    V(sem_multi_clients); // release semaphore
+                    current_stack = 0;
+                    break;
+                    //do client_command 1
+                    //create pick_place thread to control arm
+                case 4:
+                    P(sem_multi_clients); // only one client can send command at a time
+                    for(int i = 0;i < 4;i++){
+                        rc = pthread_create(&threads[i], NULL, pick_place, (void *)rb);
+                        if (rc){
+                            printf("ERROR; pthread_create() returns %d\n", rc);
+                            exit(-1);
+                            break;
+                        }
+                        printf("do client_command 4\n");
+                    }
+                    // make sure all threads are finished
+                    for(int i = 0;i < 4;i++){
+                        pthread_join(threads[i], NULL);
+                    }
+                    V(sem_multi_clients); // release semaphore
+                    current_stack = 0;
+                    break; 
 
-            default:
-                break;
+                default:
+                    break;
             }
-            
         }
     }
     #ifdef DEBUG
@@ -350,7 +374,6 @@ void *command_reciever(void *fd){
     close(forClientSockfd);
     pthread_exit(NULL);
 }
-
 
 
 
@@ -423,7 +446,43 @@ int main(int argc, char *argv[]) {
         fprintf(stderr, "Unable to initialize Sem: %s\n", strerror(errno)); 
         exit(0); 
     }
+    //socket transmit PID to panel
+     //socket creation
+    int panelfd = 0;
+    panelfd = socket(AF_INET , SOCK_STREAM , 0);
 
+    if (panelfd == -1){
+        printf("Fail to create a socket.");
+    }
+
+    //socket connection
+    struct sockaddr_in info;
+    bzero(&info,sizeof(info));
+    info.sin_family = PF_INET;
+    info.sin_addr.s_addr = inet_addr("127.0.0.1");//ip address
+    info.sin_port = htons(6666);//port
+    int err = connect(sockfd,(struct sockaddr *)&info,sizeof(info));
+    if(err==-1){
+        printf("Connection error");
+    }
+    char message[256];
+    memset(message,'\0',sizeof(message));
+    sprintf(message,"%d",getpid());
+    send(panelfd,message,sizeof(message),0);
+
+
+    //panel sigaction
+    struct sigaction hold_action,resume_action;
+    /* register hold_handeler to SIGUSR1 */
+    memset(&hold_action, 0, sizeof (struct sigaction));
+    hold_action.sa_flags = SA_SIGINFO;
+    hold_action.sa_sigaction = hold_handeler;
+    sigaction(SIGUSR1, &hold_action, NULL);
+    /* register resume_handeler to SIGUSR2 */
+    memset(&resume_action, 0, sizeof (struct sigaction));
+    resume_action.sa_flags = SA_SIGINFO;
+    resume_action.sa_sigaction = resume_handeler;
+    sigaction(SIGUSR2, &resume_action, NULL);
 
 
     //socket server initialization
