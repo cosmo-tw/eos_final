@@ -168,7 +168,7 @@ void *pick_place(void *arg) {
     P(sem_temp);
     RobotCommand(&rb[arm_id], readypos); 
     V(sem_temp);
-    usleep(250000);
+    //usleep(250000);
     
     // Wait while the arm is busy (make sure the arm is at readypos)
     P(sem_temp);
@@ -178,6 +178,7 @@ void *pick_place(void *arg) {
             //printf("arm_id %d is moving to [READYPOS].\n", arm_id);
             prev_status = 1;
         }
+        // prevent busy waiting
         usleep(250000);
     }
     if (prev_status != 0) {
@@ -188,7 +189,8 @@ void *pick_place(void *arg) {
     // Control the robot arm (with current_stack), checking the current stack
     P(sem_stack);
     RobotCommand(&rb[arm_id], (Command)(current_stack + 1)); 
-    usleep(250000);
+    
+    //usleep(250000);
     printf("arm_id %d is commanded to [STACK %d].\n", arm_id, current_stack + 1);
     current_stack += 1;
 
@@ -199,6 +201,7 @@ void *pick_place(void *arg) {
             //printf("arm_id %d is [STACKING].\n", arm_id);
             prev_status = 1;
         }
+        // prevent busy waiting
         usleep(250000);
     }
     if (prev_status != 0) {
